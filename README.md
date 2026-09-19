@@ -4,19 +4,96 @@ Therapist dashboard, phone-browser seated-reach capture, FastAPI/PostgreSQL back
 
 **Completion status:** consult [verification evidence](docs/verification.md). Automated or synthetic results do not establish a real phone capture or an actual Quest connection. Both require their own acceptance run.
 
-## Run the demo
+## Hosting: one laptop, one website, two views
 
-```sh
-cp .env.example .env
-# Edit .env: PUBLIC_ORIGIN, JWT_SECRET, database password and DEMO_PASSWORD.
-docker compose up --build -d
+**The therapist dashboard and patient phone app do not need separate hosting.** They are two routes in the same Next.js website, served by your laptop. Both use the same FastAPI backend and PostgreSQL database. The phone runs its browser and camera; it does not run a separate server.
+
+| What to open | Address | Where |
+|---|---|---|
+| Sign in | `https://YOUR-TUNNEL-HOST/` | Laptop or phone |
+| Therapist dashboard | `https://YOUR-TUNNEL-HOST/dashboard` | Laptop browser, signed in as therapist |
+| Patient app | `https://YOUR-TUNNEL-HOST/patient` | Phone browser, signed in as patient |
+| Local website preview | `http://127.0.0.1:8080` | Laptop only |
+| API documentation | `https://YOUR-TUNNEL-HOST/api/docs` | Laptop browser |
+| Quest WebSocket endpoint | `wss://YOUR-TUNNEL-HOST/api/v1/ws/SESSION_ID` | Unity client, with the documented device-token handshake |
+
+`YOUR-TUNNEL-HOST` is a placeholder. Replace it with the actual hostname printed by the tunnel command below. No live public URL is assigned by this README. Open the sign-in page first; your account determines which view opens.
+
+```mermaid
+flowchart TD
+    Therapist["Therapist: laptop browser /dashboard"] --> Public["Same public HTTPS hostname"]
+    Patient["Patient: phone browser /patient"] --> Public
+    Quest["Quest: WSS connection"] --> Public
+    Public --> Tunnel["HTTPS tunnel running on your laptop"]
+    Tunnel --> Gateway["Laptop gateway: 127.0.0.1:8080"]
+    Gateway --> Frontend["Next.js: dashboard + patient app"]
+    Gateway --> Backend["FastAPI: /api/* and WebSockets"]
+    Backend --> Database["PostgreSQL: saved sessions"]
 ```
 
-The gateway listens at `http://127.0.0.1:8080` on the laptop. For camera capture on a phone, expose that listener through an HTTPS tunnel and use its public origin on **all devices**. See [exact HTTPS instructions](docs/local-https.md). Containers retain PostgreSQL data in a named volume. Backend startup runs incremental migrations and fictional demo seeding.
+### Which IP does my phone connect to?
 
-Fictional accounts: `therapist@demo.local` and `patient@demo.local`. Use the `DEMO_PASSWORD` configured before initial seeding; never publish these credentials. For local-only tests without an override, the seeded defaults are `DemoTherapist123!` and `DemoPatient123!`. No real patient or real completed movement session is seeded.
+**For this setup, send your phone the tunnel's public HTTPS link, not your laptop's raw IP address.** The tunnel forwards that link to `http://127.0.0.1:8080` on your laptop. On your phone, `localhost` and `127.0.0.1` mean the phone itself, not your computer.
 
-Open the therapist dashboard, choose the fictional patient, and assign seated reach. Open the patient account on a phone to see the assignment. Start camera setup, grant permission, enable audio if desired and perform the configured movement. Finish and submit the separate check-in. Review its saved tracking, repetitions, replay and report on the dashboard. Restart backend with `docker compose restart backend` and reopen the same session to perform the durability acceptance check.
+Your laptop also has a network IP. On this Mac, you can inspect the address on `en0` with:
+
+```sh
+ipconfig getifaddr en0
+```
+
+If that prints nothing, check System Settings → Wi-Fi → Details → TCP/IP for the active connection. The address can change when you change networks, so do not hard-code it into the phone or Unity app.
+
+The current Docker configuration binds port 8080 to **laptop loopback only** (`127.0.0.1:8080:8080`). Therefore `http://YOUR-LAPTOP-IP:8080` is not a working phone URL in this configuration. Also, a plain HTTP network-IP page does not meet browser camera secure-context requirements. Use the HTTPS tunnel for the camera demo. See [browser camera requirements](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia).
+
+### Start it and connect your phone
+
+You need Docker with Compose and the `cloudflared` tunnel client installed on your laptop. Cloudflare documents the temporary tunnel command in its [Quick Tunnels guide](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/).
+
+1. Open a terminal in this repository and copy the environment template **once**:
+
+   ```sh
+   cd /path/to/AR-VR
+   cp .env.example .env
+   ```
+
+   Edit `.env`: choose private values for `POSTGRES_PASSWORD`, `DEMO_PASSWORD`, and `JWT_SECRET` (at least 32 random characters). Keep an existing `.env` if you already configured one.
+
+2. In a second laptop terminal, start the tunnel and leave it running:
+
+   ```sh
+   cloudflared tunnel --url http://127.0.0.1:8080
+   ```
+
+   It prints an address shaped like `https://YOUR-ASSIGNED-NAME.trycloudflare.com`. Copy the **actual printed address**. Until the Docker app starts, opening it may show an upstream connection error.
+
+3. Set `.env` to that exact address, with no trailing slash:
+
+   ```dotenv
+   PUBLIC_ORIGIN=https://YOUR-ASSIGNED-NAME.trycloudflare.com
+   ```
+
+4. Back in the repository terminal, start the application:
+
+   ```sh
+   docker compose up --build -d
+   docker compose ps
+   ```
+
+   One command starts the website, backend, database and gateway. The backend runs migrations and seeds fictional accounts. PostgreSQL stores sessions in a persistent Docker volume.
+
+5. On the **laptop**, open the printed HTTPS address, sign in as `therapist@demo.local` using your configured `DEMO_PASSWORD`, and assign an exercise. The dashboard is at `/dashboard`.
+
+6. Send that **same HTTPS address** to your **phone**. Open it in Safari or Chrome, sign in as `patient@demo.local` using your configured `DEMO_PASSWORD`, and open `/patient`. Allow camera access when starting the exercise. No phone app installation or separate patient hosting is needed.
+
+7. Keep Docker running, the tunnel terminal open, and the laptop awake and connected to the internet throughout the demo. The phone needs internet access; with this public tunnel it does not have to use the same Wi-Fi network as the laptop.
+
+A temporary tunnel usually gets a new hostname when restarted. Update `PUBLIC_ORIGIN`, run `docker compose up -d --force-recreate backend`, and share the new link. Changing `PUBLIC_ORIGIN` alone does not create a tunnel or public hostname. See [additional HTTPS troubleshooting](docs/local-https.md).
+
+### Accounts and saved sessions
+
+The two accounts are fictional. Use the `DEMO_PASSWORD` configured **before initial seeding**. Changing that variable later does not change passwords for users already in the database. For local-only tests without an override, the seed defaults are `DemoTherapist123!` and `DemoPatient123!`; configure private credentials before sharing the tunnel. No real patient or completed movement session is seeded.
+
+After the phone session, submit the check-in and review its tracking, repetitions, replay and report in the therapist dashboard. Verify durability with `docker compose restart backend`, then reopen the same session. This restarts the backend while preserving the database. Physical-phone and actual Quest acceptance remain pending until recorded in [verification evidence](docs/verification.md).
 
 ## Repository
 
