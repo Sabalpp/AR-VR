@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 import { Camera, Pause, Play, Square, Volume2, VolumeX } from "lucide-react";
 import { api, Frame, Session, errorText } from "@/lib/api";
 import { createTracker, frameFromLandmarks, drawPose } from "@/lib/camera";
+import {
+  createEquipmentDetector,
+  equipmentFromDetections,
+  drawEquipment,
+  type EquipmentHit,
+} from "@/lib/equipment";
 import { ErrorBox } from "./Shell";
 import { useSession } from "@/lib/store";
 type State = {
@@ -38,6 +44,13 @@ export default function CameraSession({ id }: { id: string }) {
   const previousReps = useRef(0);
   const previousTracking = useRef(false);
   const speechCache = useRef(new Map<string, AudioBuffer>());
+  const equipment = useRef<Awaited<
+    ReturnType<typeof createEquipmentDetector>
+  > | null>(null);
+  const lastEquipmentMs = useRef(0);
+  // Held in a ref as well as state: the tick loop closes over its first render,
+  // so reading state there would go stale.
+  const equipmentHits = useRef<EquipmentHit[]>([]);
   const [started, setStarted] = useState(false);
   const [isPaused, setPaused] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -184,6 +197,8 @@ export default function CameraSession({ id }: { id: string }) {
       await video.current.play();
       stage = "Loading camera movement tracker";
       tracker.current = await createTracker();
+      // Advisory only: a failure here must never block the session.
+      equipment.current = await createEquipmentDetector().catch(() => null);
       running.current = true;
       setStarted(true);
       setConnection("Connected · waiting for movement");
@@ -211,7 +226,24 @@ export default function CameraSession({ id }: { id: string }) {
               `seq-${device.current?.device_id}`,
               String(sequence.current),
             );
+            // Throttle to ~3Hz: object detection costs far more per frame than
+            // pose tracking, and rep counting must keep priority on the phone.
+            if (equipment.current && now - lastEquipmentMs.current > 333) {
+              lastEquipmentMs.current = now;
+              try {
+                const found = equipment.current.detectForVideo(v, now);
+                equipmentHits.current = equipmentFromDetections(
+                  found.detections,
+                  v,
+                );
+              } catch {
+                equipmentHits.current = [];
+              }
+            }
+            // drawPose clears the canvas, so equipment boxes go on top after it.
             if (canvas.current) drawPose(canvas.current, frame);
+            if (canvas.current && equipmentHits.current.length)
+              drawEquipment(canvas.current, equipmentHits.current);
             setTracking(frame.tracking_valid);
             if (previousTracking.current && !frame.tracking_valid)
               void playCue("tracking_lost");
