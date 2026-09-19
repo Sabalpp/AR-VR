@@ -1,0 +1,803 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reach.example/contracts/websocket.v1.schema.json",
+  "title": "Reach WebSocket protocol v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/client_device_join"
+    },
+    {
+      "$ref": "#/$defs/client_device_status"
+    },
+    {
+      "$ref": "#/$defs/client_tracking_frame"
+    },
+    {
+      "$ref": "#/$defs/client_exercise_event"
+    },
+    {
+      "$ref": "#/$defs/client_session_pause"
+    },
+    {
+      "$ref": "#/$defs/client_session_resume"
+    },
+    {
+      "$ref": "#/$defs/client_session_complete"
+    },
+    {
+      "$ref": "#/$defs/server_session_config"
+    },
+    {
+      "$ref": "#/$defs/server_session_state"
+    },
+    {
+      "$ref": "#/$defs/server_exercise_feedback"
+    },
+    {
+      "$ref": "#/$defs/server_session_summary"
+    },
+    {
+      "$ref": "#/$defs/server_error"
+    }
+  ],
+  "$defs": {
+    "Joint": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "z": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Z"
+        },
+        "visibility": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Visibility",
+          "type": "number"
+        },
+        "inferred": {
+          "default": false,
+          "title": "Inferred",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "visibility"
+      ],
+      "title": "Joint",
+      "type": "object"
+    },
+    "Frame": {
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "minimum": 0,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "captured_at": {
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        },
+        "coordinate_system": {
+          "enum": [
+            "image_normalized",
+            "quest_local"
+          ],
+          "title": "Coordinate System",
+          "type": "string"
+        },
+        "units": {
+          "enum": [
+            "normalized",
+            "meters"
+          ],
+          "title": "Units",
+          "type": "string"
+        },
+        "image_width": {
+          "anyOf": [
+            {
+              "maximum": 10000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Width"
+        },
+        "image_height": {
+          "anyOf": [
+            {
+              "maximum": 10000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Height"
+        },
+        "tracking_valid": {
+          "title": "Tracking Valid",
+          "type": "boolean"
+        },
+        "joints": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Joint"
+          },
+          "maxProperties": 64,
+          "title": "Joints",
+          "type": "object"
+        }
+      },
+      "required": [
+        "seq",
+        "captured_at",
+        "coordinate_system",
+        "units",
+        "tracking_valid",
+        "joints"
+      ],
+      "title": "Frame",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "coordinate_system": {
+                "const": "image_normalized"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "image_width",
+              "image_height"
+            ],
+            "properties": {
+              "units": {
+                "const": "normalized"
+              },
+              "image_width": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "image_height": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "units": {
+                "const": "meters"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ExerciseConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "phone_return_deg": {
+          "default": 95,
+          "maximum": 150,
+          "minimum": 20,
+          "title": "Phone Return Deg",
+          "type": "number"
+        },
+        "phone_reach_deg": {
+          "default": 145,
+          "maximum": 180,
+          "minimum": 40,
+          "title": "Phone Reach Deg",
+          "type": "number"
+        },
+        "hold_ms": {
+          "default": 300,
+          "maximum": 5000,
+          "minimum": 200,
+          "title": "Hold Ms",
+          "type": "integer"
+        },
+        "visibility_min": {
+          "default": 0.65,
+          "maximum": 1,
+          "minimum": 0.5,
+          "title": "Visibility Min",
+          "type": "number"
+        },
+        "gap_ms": {
+          "default": 750,
+          "maximum": 2000,
+          "minimum": 200,
+          "title": "Gap Ms",
+          "type": "integer"
+        },
+        "quest_target_m": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Quest Target M",
+          "type": "object"
+        },
+        "quest_reach_m": {
+          "default": 0.12,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Quest Reach M",
+          "type": "number"
+        },
+        "quest_return_m": {
+          "default": 0.3,
+          "exclusiveMinimum": 0,
+          "maximum": 2,
+          "title": "Quest Return M",
+          "type": "number"
+        },
+        "target_repetitions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "authoritative_counter": {
+          "const": "backend"
+        }
+      },
+      "title": "ExerciseConfig",
+      "type": "object"
+    },
+    "client_device_join": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "device.join"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "token": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "token"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "client_device_status": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "device.status"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "clock_offset_ms": {
+              "type": "number"
+            },
+            "tracking_valid": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "clock_offset_ms",
+            "tracking_valid"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "client_tracking_frame": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "tracking.frame"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "$ref": "#/$defs/Frame"
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "client_exercise_event": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "exercise.event"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "seq": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "seq",
+            "name",
+            "occurred_at"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "client_session_pause": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "session.pause"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "client_session_resume": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "session.resume"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "client_session_complete": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "session.complete"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "server_session_config": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "session.config"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "config": {
+              "$ref": "#/$defs/ExerciseConfig"
+            },
+            "mode": {
+              "enum": [
+                "phone",
+                "quest"
+              ]
+            },
+            "authoritative_counter": {
+              "const": "backend"
+            },
+            "device_id": {
+              "type": "string"
+            },
+            "last_seq": {
+              "type": "integer",
+              "minimum": -1
+            },
+            "server_time": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "config",
+            "mode",
+            "authoritative_counter",
+            "device_id",
+            "last_seq",
+            "server_time"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "server_session_state": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "session.state"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "ack_id": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "active",
+                "paused",
+                "complete"
+              ]
+            },
+            "repetitions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "phase": {
+              "enum": [
+                "waiting_return",
+                "ready",
+                "reached"
+              ]
+            },
+            "last_measurement": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tracking_valid": {
+              "type": "boolean"
+            },
+            "authoritative_device_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "candidate_since": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "last_capture_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "resume_after_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "accepted_frames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "invalid_frames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tracking_gaps": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "ack_id",
+            "status",
+            "repetitions",
+            "phase",
+            "last_measurement",
+            "tracking_valid"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "server_exercise_feedback": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "exercise.feedback"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "cue_id": {
+              "enum": [
+                "reach",
+                "tracking_lost"
+              ]
+            }
+          },
+          "required": [
+            "message",
+            "cue_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "server_session_summary": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "session.summary"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string"
+            },
+            "repetitions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "report_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "session_id",
+            "repetitions",
+            "report_path"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "server_error": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "error"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "ack_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
