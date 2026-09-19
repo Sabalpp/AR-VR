@@ -119,7 +119,7 @@ With `DATABASE_URL` configured, start only the application services (the databas
 docker compose up --build -d --no-deps backend frontend gateway
 ```
 
-Startup applies our migrations and fictional demo seed to that database, so use a dedicated hackathon database. The existing local Docker `db` and its volume are unchanged. Existing local records are not automatically copied to Tiger Data. Hosted connection/migrations remain unverified until real service credentials are configured and tested.
+Startup applies our migrations and fictional demo seed to that database, so use a dedicated hackathon database. The existing local Docker `db` and its volume are unchanged. Existing local records are not automatically copied to Tiger Data. The configured Tiger Data service has now passed connection, migration, fictional seeding, and authenticated API checks; see [verification evidence](docs/verification.md#tiger-data-hosted-setup). Real-phone capture remains a separate acceptance gate.
 
 If `DATABASE_URL` is empty, the regular `docker compose up --build -d` command uses **local PostgreSQL as a development fallback**. `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` configure that local fallback; they are not your Tiger Data credentials. With Tiger Data, records live in the hosted service rather than the local Docker volume. Both web views still run on the laptop and use the same HTTPS tunnel.
 

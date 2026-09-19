@@ -55,7 +55,7 @@ The short replay fixture contains only right shoulder, elbow and wrist; its thre
 - **Providers:** real Gemini and ElevenLabs calls require credentials and approved voice configuration; current evidence covers deterministic fallback and mocked provider behavior only.
 - **Presage:** intentionally disabled; platform/access eligibility not verified. No SDK or invented vitals.
 - **Impiricus:** clinician review/communication workflow demonstration only. No Impiricus API or claim of sponsor API integration.
-- **Tiger Data hosted service/Timescale:** ordinary PostgreSQL is tested. Hosted credentials and Timescale optimizations are not required for this demo and are not tested.
+- **Tiger Data hosted service/Timescale:** hosted connection, migrations, seeding and authenticated API reads are now verified (details below). Hosted movement capture/restart acceptance and Timescale-specific optimizations remain unverified.
 - Rate limits and speech cache are process-local; deployment is a single backend worker. No registration/password-reset, clinical validation, archival retention system or production health-record compliance claim is included.
 - MediaPipe WASM/model download requires the documented CDN unless assets are self-hosted.
 
@@ -79,3 +79,13 @@ DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB' uv run python ../
 ```
 
 Install Playwright in an isolated tools directory and run `scripts/browser_smoke.mjs` with `PLAYWRIGHT_MODULE` set to its absolute `playwright/index.mjs`, `TEST_ORIGIN` pointing to the running web app, and `DEMO_PASSWORD` matching the seed if customized. Optionally set `REVIEW_SESSION_ID` to a saved synthetic session. Screenshots default to `/tmp/arvr-browser-evidence`. This test creates an assignment and an empty camera setup session.
+
+## Tiger Data hosted setup
+
+Follow-up setup used the configured hosted service, after checking that its public schema had no existing tables. Alembic upgrade to `405e2f264a53` succeeded, creating all 12 application tables plus `alembic_version`. No existing tables or records were dropped.
+
+Seeded two fictional users (`therapist@demo.local`, `patient@demo.local`), one fictional patient, one therapist access relationship, one seated-reach exercise and one five-repetition assignment. Passwords use the private `DEMO_PASSWORD` from the local environment and are stored as hashes. Running the seed again left all row counts unchanged.
+
+FastAPI TestClient against the actual hosted database verified both account logins, the therapist's patient list, the patient's five-repetition assignment, and denied unauthenticated patient-list access. No tokens, passwords or connection URLs are included in this evidence.
+
+Sessions, devices, movement chunks, repetition events, metrics, check-ins and reports remain empty. No captured or simulated movement was fabricated for seeding. This verifies hosted database setup and API access; it does not establish a real-phone capture or a deployed web-to-hosted-database flow.
