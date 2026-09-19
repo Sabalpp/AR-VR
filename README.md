@@ -79,7 +79,7 @@ You need Docker with Compose and the `cloudflared` tunnel client installed on yo
    docker compose ps
    ```
 
-   One command starts the website, backend, database and gateway. The backend runs migrations and seeds fictional accounts. PostgreSQL stores sessions in a persistent Docker volume.
+   This local-fallback command starts the website, backend, database and gateway. For hosted Tiger Data, use the command in the database section below. The backend runs migrations and seeds fictional accounts. PostgreSQL stores sessions in a persistent Docker volume.
 
 5. On the **laptop**, open the printed HTTPS address, sign in as `therapist@demo.local` using your configured `DEMO_PASSWORD`, and assign an exercise. The dashboard is at `/dashboard`.
 
@@ -94,6 +94,34 @@ A temporary tunnel usually gets a new hostname when restarted. Update `PUBLIC_OR
 The two accounts are fictional. Use the `DEMO_PASSWORD` configured **before initial seeding**. Changing that variable later does not change passwords for users already in the database. For local-only tests without an override, the seed defaults are `DemoTherapist123!` and `DemoPatient123!`; configure private credentials before sharing the tunnel. No real patient or completed movement session is seeded.
 
 After the phone session, submit the check-in and review its tracking, repetitions, replay and report in the therapist dashboard. Verify durability with `docker compose restart backend`, then reopen the same session. This restarts the backend while preserving the database. Physical-phone and actual Quest acceptance remain pending until recorded in [verification evidence](docs/verification.md).
+
+## Database: Tiger Data
+
+**Tiger Data is the intended hosted database.** It provides PostgreSQL; the backend connects using your service's **database connection URL**, not a Tiger Data management API key. Get the URL from your service's connection details in the Tiger Data console ([connection instructions](https://docs.tigerdata.com/use-timescale/latest/integrations/find-connection-details/)).
+
+Open your private configuration:
+
+```sh
+vim /Users/sabal/AR-VR/.env
+```
+
+Fill in the existing `DATABASE_URL` line with the actual service URL:
+
+```dotenv
+DATABASE_URL='postgresql://USER:URL_ENCODED_PASSWORD@HOST:PORT/DATABASE?sslmode=require'
+```
+
+Use the host, port, username, database name and TLS parameters supplied by Tiger Data. Preserve percent-encoding in the URL password. The backend automatically selects its installed psycopg driver. Keep this URL server-side in `.env`; never put it in a `NEXT_PUBLIC_` variable or the phone/Quest app.
+
+With `DATABASE_URL` configured, start only the application services (the database is hosted remotely):
+
+```sh
+docker compose up --build -d --no-deps backend frontend gateway
+```
+
+Startup applies our migrations and fictional demo seed to that database, so use a dedicated hackathon database. The existing local Docker `db` and its volume are unchanged. Existing local records are not automatically copied to Tiger Data. Hosted connection/migrations remain unverified until real service credentials are configured and tested.
+
+If `DATABASE_URL` is empty, the regular `docker compose up --build -d` command uses **local PostgreSQL as a development fallback**. `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` configure that local fallback; they are not your Tiger Data credentials. With Tiger Data, records live in the hosted service rather than the local Docker volume. Both web views still run on the laptop and use the same HTTPS tunnel.
 
 ## Repository
 

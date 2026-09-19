@@ -1,9 +1,23 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     database_url: str = "postgresql+psycopg://rehab:rehab@localhost:5432/rehab"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def use_psycopg_driver(cls, value):
+        # Tiger Data supplies a standard PostgreSQL URI; SQLAlchemy needs the
+        # installed psycopg 3 driver explicitly. Preserve credentials and TLS options.
+        if not value:
+            return "postgresql+psycopg://rehab:rehab@localhost:5432/rehab"
+        for prefix in ("postgresql://", "postgres://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
+
     jwt_secret: str = "development-only-change-this-secret-32chars"
     public_origin: str = "https://localhost:3000"
     environment: str = "development"
