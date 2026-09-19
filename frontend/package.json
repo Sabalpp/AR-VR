@@ -6,7 +6,7 @@
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "generate:api": "openapi-typescript ../contracts/openapi.json -o lib/generated-api.ts"
   },
   "dependencies": {
