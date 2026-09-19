@@ -12,6 +12,9 @@ type State = {
   phase: string;
   last_measurement: number | null;
   tracking_valid: boolean;
+  phone_setup_ready?: boolean;
+  phone_trunk_lean_deg?: number | null;
+  phone_trunk_review?: boolean;
 };
 type Device = { device_token: string; device_id: string; session_id: string };
 export default function CameraSession({ id }: { id: string }) {
@@ -27,6 +30,7 @@ export default function CameraSession({ id }: { id: string }) {
   const running = useRef(false);
   const paused = useRef(false);
   const uploading = useRef(false);
+  const draining = useRef(false);
   const device = useRef<Device | null>(null);
   const animation = useRef(0);
   const lastTime = useRef(-1);
@@ -54,11 +58,48 @@ export default function CameraSession({ id }: { id: string }) {
   const [pairCode, setPairCode] = useState("");
   const [target, setTarget] = useState<number>();
   const [mode, setMode] = useState<string>("phone");
+  const modeRef = useRef("phone");
+  const wakeLock = useRef<WakeLockSentinel | null>(null);
+  const [wakeNote, setWakeNote] = useState("");
+  async function keepAwake() {
+    if (wakeLock.current && !wakeLock.current.released) return;
+    try {
+      if (!("wakeLock" in navigator)) throw new Error("unsupported");
+      wakeLock.current = await navigator.wakeLock.request("screen");
+      setWakeNote("Screen wake lock active while this page stays visible.");
+    } catch {
+      setWakeNote("Keep this page open and disable auto-lock during the session; this browser could not keep the screen awake.");
+    }
+  }
+  function acceptState(next: State) {
+    setState(next);
+    if (modeRef.current !== "phone") {
+      paused.current = next.status !== "active";
+      setPaused(paused.current);
+    }
+    if (next.status === "complete") {
+      running.current = false;
+      stream.current?.getTracks().forEach((track) => { track.onended = null; track.onmute = null; track.stop(); });
+      void wakeLock.current?.release();
+      if (queue.current.length) {
+        setError(`${queue.current.length} phone samples were not acknowledged on this phone before headset completion. Review the saved replay to confirm coverage.`);
+        queue.current = [];
+      }
+      setFinished(true);
+    }
+  }
+  async function headsetCode() {
+    try {
+      const p = await api<{ code: string }>(`/sessions/${id}/pairing`, { source: "quest" });
+      setPairCode(p.code);
+    } catch (e) { setError(errorText(e)); }
+  }
   useEffect(() => {
     api<Session>(`/sessions/${id}`)
       .then((session) => {
         setState(session.state);
         setMode(session.mode);
+        modeRef.current = session.mode;
         setTarget(Number(session.config_snapshot.target_repetitions));
         if (session.state.status === "complete") setFinished(true);
         if (session.state.status === "paused") {
@@ -68,6 +109,20 @@ export default function CameraSession({ id }: { id: string }) {
       })
       .catch((e) => setError(errorText(e)));
   }, [id]);
+  useEffect(() => {
+    if (mode === "phone" || finished) return;
+    let pending = false;
+    const timer = setInterval(async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const session = await api<Session>(`/sessions/${id}`, undefined, device.current?.device_token);
+        acceptState(session.state);
+      } catch (e) { setError(errorText(e)); }
+      finally { pending = false; }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [id, mode, finished]);
   async function flush() {
     if (uploading.current || !queue.current.length || !device.current) return;
     uploading.current = true;
@@ -79,7 +134,7 @@ export default function CameraSession({ id }: { id: string }) {
         device.current.device_token,
       );
       queue.current.splice(0, batch.length);
-      setState(result.state);
+      acceptState(result.state);
       if (result.state.repetitions > previousReps.current)
         void playCue("reach");
       previousReps.current = result.state.repetitions;
@@ -103,12 +158,13 @@ export default function CameraSession({ id }: { id: string }) {
     }
   }
   useEffect(() => {
-    const timer = setInterval(() => void flush(), 700);
+    const timer = setInterval(() => void flush(), 250);
     const visibility = () => {
       if (document.hidden && running.current)
         void pauseSession(
           "Session paused because this page moved to the background. Return and resume when ready.",
         );
+      else if (running.current) void keepAwake();
     };
     document.addEventListener("visibilitychange", visibility);
     return () => {
@@ -119,6 +175,7 @@ export default function CameraSession({ id }: { id: string }) {
       stream.current?.getTracks().forEach((t) => t.stop());
       tracker.current?.close();
       void audio.current?.close();
+      void wakeLock.current?.release();
     };
   }, [id]);
   async function start() {
@@ -185,6 +242,7 @@ export default function CameraSession({ id }: { id: string }) {
       stage = "Loading camera movement tracker";
       tracker.current = await createTracker();
       running.current = true;
+      await keepAwake();
       setStarted(true);
       setConnection("Connected · waiting for movement");
       const tick = (now: number) => {
@@ -193,7 +251,8 @@ export default function CameraSession({ id }: { id: string }) {
         if (
           v &&
           tracker.current &&
-          !paused.current &&
+          !draining.current &&
+          (!paused.current || modeRef.current === "combined") &&
           v.readyState >= 2 &&
           now - lastCapture.current >= 100 &&
           v.currentTime !== lastTime.current
@@ -206,6 +265,7 @@ export default function CameraSession({ id }: { id: string }) {
               result.landmarks[0],
               v,
               sequence.current++,
+              modeRef.current === "combined",
             );
             sessionStorage.setItem(
               `seq-${device.current?.device_id}`,
@@ -256,7 +316,7 @@ export default function CameraSession({ id }: { id: string }) {
           : cameraErrors[name] ||
               `${stage} failed: ${errorText(e)}. Try a current phone browser with camera access.`,
       );
-      stream.current?.getTracks().forEach((t) => t.stop());
+      stream.current?.getTracks().forEach((t) => { t.onended = null; t.onmute = null; t.stop(); });
     } finally {
       setBusy(false);
     }
@@ -278,6 +338,7 @@ export default function CameraSession({ id }: { id: string }) {
   }
   async function finish() {
     setBusy(true);
+    draining.current = true;
     paused.current = true;
     setPaused(true);
     try {
@@ -295,17 +356,20 @@ export default function CameraSession({ id }: { id: string }) {
       }
       await api(`/sessions/${id}/complete`, {}, device.current?.device_token);
       running.current = false;
-      stream.current?.getTracks().forEach((t) => t.stop());
+      stream.current?.getTracks().forEach((t) => { t.onended = null; t.onmute = null; t.stop(); });
+      void wakeLock.current?.release();
       setFinished(true);
       void playCue("complete");
     } catch (e) {
       setError(errorText(e));
     } finally {
+      draining.current = false;
       setBusy(false);
     }
   }
   async function playCue(cue: string) {
     if (
+      modeRef.current !== "phone" ||
       mutedRef.current ||
       !audio.current ||
       Date.now() - lastCue.current < 8000
@@ -338,6 +402,7 @@ export default function CameraSession({ id }: { id: string }) {
     }
   }
   async function sound() {
+    if (modeRef.current !== "phone") return;
     if (!mutedRef.current) {
       mutedRef.current = true;
       audioSource.current?.stop();
@@ -428,6 +493,19 @@ export default function CameraSession({ id }: { id: string }) {
         </form>
       </div>
     );
+  if (mode === "quest") return (
+    <div className="stack">
+      <h1>Connect your headset</h1>
+      <p>Stay seated, clear the area around your chair and turn passthrough on. Use the headset for pause, resume, finish and mute. This phone will stay silent.</p>
+      <p className="note">Open this website’s /quest page in Meta Quest Browser and enter the code there. A compatible Unity client can use the same code. Physical headset acceptance is still pending.</p>
+      <ErrorBox message={error} />
+      <button className="btn" onClick={headsetCode}>Get a headset pairing code</button>
+      {pairCode && <div className="card"><p className="code">{pairCode}</p><p className="note">Enter this single-use code at this website’s /quest page in Meta Quest Browser within five minutes.</p></div>}
+      <p role="status">{state?.status} · {state?.repetitions ?? 0} saved repetitions</p>
+      <button className="btn secondary" onClick={() => pauseSession()}>Emergency pause</button>
+      <button className="btn secondary" onClick={finish} disabled={busy}>Finish from browser</button>
+    </div>
+  );
   return (
     <div className="stack">
       <div>
@@ -436,9 +514,9 @@ export default function CameraSession({ id }: { id: string }) {
         </div>
         <h1>{started ? "One reach at a time." : "Find your good side."}</h1>
         <p className="muted" style={{ marginTop: 12 }}>
-          Sit sideways to the camera so your right shoulder, elbow and wrist are
-          visible. Bend your elbow, then extend and return; hold each position
-          briefly.
+          {mode === "combined"
+            ? "Before putting on the headset, sit sideways to a level, stationary phone. Keep your right shoulder and hip visible for at least one second. Stay seated with Quest passthrough on."
+            : "Sit sideways to the camera so your right shoulder, elbow and wrist are visible. Bend your elbow, then extend and return; hold each position briefly."}
         </p>
       </div>
       <div className="camera">
@@ -447,11 +525,11 @@ export default function CameraSession({ id }: { id: string }) {
         <div className="camera-badge" role="status">
           {!started
             ? "Camera off"
-            : isPaused
+            : isPaused && mode !== "combined"
               ? "Paused"
               : tracking
-                ? "Right arm visible"
-                : "Tracking lost · bring your right arm into view"}
+                ? mode === "combined" ? "Shoulder and hip visible" : "Right arm visible"
+                : mode === "combined" ? "Bring your right shoulder and hip into view" : "Tracking lost · bring your right arm into view"}
         </div>
       </div>
       <ErrorBox message={error} />
@@ -476,10 +554,10 @@ export default function CameraSession({ id }: { id: string }) {
               </div>
             </div>
             <div>
-              <p className="eyebrow">PROJECTED ELBOW ANGLE</p>
+              <p className="eyebrow">{mode === "combined" ? "PROJECTED TRUNK TILT" : "PROJECTED ELBOW ANGLE"}</p>
               <div className="stat-number">
-                {tracking && state?.last_measurement != null
-                  ? `${Math.round(state.last_measurement)}°`
+                {tracking && (mode === "combined" ? state?.phone_trunk_lean_deg : state?.last_measurement) != null
+                  ? `${Math.round((mode === "combined" ? state?.phone_trunk_lean_deg : state?.last_measurement)!)}°`
                   : "—"}
               </div>
             </div>
@@ -491,10 +569,10 @@ export default function CameraSession({ id }: { id: string }) {
             <button
               className="btn secondary"
               style={{ flex: 1 }}
-              onClick={() => (isPaused ? resume() : pauseSession())}
+              onClick={() => (isPaused && mode === "phone" ? resume() : pauseSession())}
             >
               {isPaused ? <Play size={18} /> : <Pause size={18} />}{" "}
-              {isPaused ? "Resume" : "Pause"}
+              {mode === "combined" ? "Emergency pause" : isPaused ? "Resume" : "Pause"}
             </button>
             <button
               className="btn"
@@ -505,7 +583,7 @@ export default function CameraSession({ id }: { id: string }) {
               <Square size={16} />
               Finish
             </button>
-            <button
+            {mode === "phone" && <button
               className="btn secondary"
               aria-label={
                 muted ? "Enable voice guidance" : "Mute voice guidance"
@@ -513,39 +591,30 @@ export default function CameraSession({ id }: { id: string }) {
               onClick={sound}
             >
               {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
+            </button>}
           </div>
         </>
       )}
-      <p className="note">
-        {mode === "quest"
-          ? "This camera is a secondary stream; the Quest stream owns repetitions. "
-          : ""}
-        Phone measurements are projected 2D elbow angles, not physical reach
-        distance. Missing or hidden joints do not count as repetitions.
-      </p>
-      <button
+      <p className="note">{wakeNote}</p>
+      <p className="note">No video leaves this phone; only timestamped landmarks are sent.</p>
+      <p className="note">{mode === "combined"
+        ? "Phone trunk tilt is measured relative to image vertical, not calibrated 3D flexion. Review flags are observations, not a diagnosis. Quest hand positions drive the backend repetition counter. Phone voice is disabled; headset audio and controls are required."
+        : "Phone measurements are projected 2D elbow angles, not physical reach distance. Missing or hidden joints do not count as repetitions."}</p>
+      {mode === "combined" && <p role="status">{started && tracking && state?.phone_setup_ready ? "Phone setup ready. Leave the phone visible and recording, pair the headset, then start from Quest." : "Waiting for stable shoulder and hip tracking before headset setup."}</p>}
+      {mode === "combined" && tracking && state?.phone_trunk_review && <p className="note">Trunk tilt review flag: the projected angle crossed the session’s demonstration threshold. Camera position affects this reading.</p>}
+      {mode === "combined" && <button
         className="btn secondary"
-        onClick={async () => {
-          try {
-            const p = await api<{ code: string }>(`/sessions/${id}/pairing`, {
-              source: "quest",
-            });
-            setPairCode(p.code);
-          } catch (e) {
-            setError(errorText(e));
-          }
-        }}
+        disabled={!started || !tracking || !state?.phone_setup_ready}
+        onClick={headsetCode}
       >
         Get a headset pairing code
-      </button>
+      </button>}
       {pairCode && (
         <div className="card">
           <p className="eyebrow">TEMPORARY QUEST CODE</p>
           <p className="code">{pairCode}</p>
           <p className="note">
-            Phone and Quest coordinate streams remain separate. This phone
-            session keeps the backend phone counter authoritative.
+            Enter this code at /quest in Meta Quest Browser within five minutes. Leave the phone open and visible. Start, pause, resume and finish from the headset; the browser controls are an emergency fallback.
           </p>
         </div>
       )}

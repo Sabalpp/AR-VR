@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from app.config import settings
 
 PHRASES = {
+    "adjust": "The target was not held. If comfortable, try reaching the target and holding briefly before returning. Stop if uncomfortable.",
     "setup": "Sit comfortably and keep your right shoulder, elbow and wrist visible.",
     "reach": "Gently reach, then return to your starting position.",
     "tracking_lost": "Tracking paused. Bring your arm back into view.",

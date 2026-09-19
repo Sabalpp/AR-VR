@@ -10,6 +10,9 @@ export type ReplayFrame = Frame & {
   status: string;
   device_id: string;
   source: string;
+  measurement_kind?: string;
+  trunk_review?: boolean;
+  attempt_event?: { id: string; device_id: string; outcome: string; started_at: string; ended_at: string; start_seq: number; end_seq: number; best_measurement: number; target_threshold: number; measurement_kind: string };
 };
 export default function Replay({
   frames,
@@ -172,6 +175,22 @@ export default function Replay({
   if (path) paths.push(path);
   return (
     <div className="stack">
+      <section id="attempt-review" className="stack">
+        <h3>Which attempts need a closer look?</h3>
+        {frames.filter(f => f.attempt_event).map(f => {
+          const a = f.attempt_event!;
+          const unit = a.measurement_kind === "quest_hand_target_distance_m" ? "m" : "°";
+          return <button key={a.id} id={`attempt-${a.id}`} className="btn secondary" style={{display:"block",textAlign:"left"}} onClick={() => {
+            const deviceFrames = frames.filter(item => item.device_id === a.device_id);
+            const origin = Math.min(...deviceFrames.map(item => Date.parse(item.captured_at)));
+            setSource(a.device_id); setTime(Math.max(0, (Date.parse(a.started_at) - origin) / 1000)); setPlaying(false);
+          }}>
+            {a.outcome === "completed" ? "Completed reach and return" : a.outcome === "target_not_held" ? "Review: target was not held" : "Interrupted tracking"}
+            <span className="note" style={{display:"block"}}>Best observed {a.best_measurement.toFixed(2)}{unit} · target {a.target_threshold.toFixed(2)}{unit} · frames {a.start_seq}–{a.end_seq}. Select to inspect the attempt.</span>
+          </button>;
+        })}
+        {!frames.some(f => f.attempt_event) && <p className="note">No complete attempt segments were recorded. Older sessions may not include attempt indexing.</p>}
+      </section>
       <label>
         Tracking source
         <select
@@ -222,10 +241,15 @@ export default function Replay({
       </div>
       <div>
         <h3>
-          {frame?.coordinate_system === "quest_local"
+          {frame?.measurement_kind === "projected_2d_trunk_lean_degrees"
+            ? "Projected trunk tilt from image vertical (°)"
+            : frame?.coordinate_system === "quest_local"
             ? "Hand-to-target distance (m)"
             : "Projected elbow angle (°)"}
         </h3>
+        {frame?.measurement_kind === "projected_2d_trunk_lean_degrees" && (
+          <p className="note">Separate phone observation. A level side-on camera is required; this is not calibrated 3D trunk flexion or a diagnosis of compensation. {observed && frame.trunk_review ? "Review flag at this sample." : ""}</p>
+        )}
         <svg
           className="chart"
           viewBox={`0 0 ${width} ${height}`}

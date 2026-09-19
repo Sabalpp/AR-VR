@@ -5,11 +5,38 @@ import math
 from app.schemas.api import Frame
 
 
+def trunk_lean(frame: Frame, config):
+    """Unsigned projected shoulder-to-hip tilt from image vertical, never 3D flexion.
+
+    Side-on, level camera required. This is a review signal, not a diagnosis of
+    compensation. Occluded, inferred and degenerate landmarks yield no value.
+    """
+    if not frame.tracking_valid or frame.coordinate_system != "image_normalized":
+        return None
+    required = ("right_shoulder", "right_hip")
+    if any(
+        name not in frame.joints
+        or frame.joints[name].inferred
+        or frame.joints[name].visibility < config["visibility_min"]
+        or not (0 <= frame.joints[name].x <= 1 and 0 <= frame.joints[name].y <= 1)
+        for name in required
+    ):
+        return None
+    shoulder, hip = (frame.joints[name] for name in required)
+    dx = (shoulder.x - hip.x) * frame.image_width / frame.image_height
+    dy = hip.y - shoulder.y
+    if dy <= 0 or math.hypot(dx, dy) < 0.05:
+        return None
+    return math.degrees(math.atan2(abs(dx), dy))
+
+
 def measurement(frame: Frame, config, mode):
     if not frame.tracking_valid:
         return None
     required = (
-        ["right_wrist"] if mode == "quest" else ["right_shoulder", "right_elbow", "right_wrist"]
+        ["right_wrist"]
+        if mode in ("quest", "combined")
+        else ["right_shoulder", "right_elbow", "right_wrist"]
     )
     if any(
         name not in frame.joints
@@ -18,7 +45,7 @@ def measurement(frame: Frame, config, mode):
         for name in required
     ):
         return None
-    if mode == "quest":
+    if mode in ("quest", "combined"):
         if frame.coordinate_system != "quest_local":
             return None
         wrist = frame.joints["right_wrist"]

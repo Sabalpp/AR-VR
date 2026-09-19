@@ -66,6 +66,8 @@ try:
         frames.append({'seq':seq,'captured_at':(t+timedelta(milliseconds=100*seq)).isoformat(),'coordinate_system':'image_normalized','units':'normalized','image_width':640,'image_height':480,'tracking_valid':True,'joints':{'right_shoulder':{'x':.3,'y':.5,'visibility':1},'right_elbow':{'x':.5,'y':.5,'visibility':1},'right_wrist':{'x':.7 if reached else .5,'y':.5 if reached else .7,'visibility':1}}})
     initial=req('POST',f'/sessions/{sid}/movement',dt,{'frames':frames})
     duplicate=req('POST',f'/sessions/{sid}/movement',dt,{'frames':frames})
+    assert initial['accepted'] == 16 and initial['state']['repetitions'] == 1, 'Incorrect frame or repetition count'
+    assert duplicate['accepted'] == 0 and duplicate['duplicates'] == 16, 'Duplicate frames accepted'
     before=req('GET',f'/sessions/{sid}/replay',therapist)
     stop(); start()
     after=req('GET',f'/sessions/{sid}/replay',therapist)

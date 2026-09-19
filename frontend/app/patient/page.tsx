@@ -11,6 +11,7 @@ export default function Today() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"phone" | "quest" | "combined">("phone");
   const router = useRouter();
   useEffect(() => {
     if (token)
@@ -23,7 +24,7 @@ export default function Today() {
     try {
       const session = await api<Session>("/sessions", {
         assignment_id: a.id,
-        mode: "phone",
+        mode,
         is_synthetic: false,
       });
       router.push(`/patient/sessions/${session.id}`);
@@ -48,6 +49,15 @@ export default function Today() {
         </p>
       </div>
       <ErrorBox message={error} />
+      <label className="card" style={{ display: "block", marginBottom: 24 }}>
+        Session mode
+        <select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+          <option value="phone">Phone only · elbow movement</option>
+          <option value="quest">Quest only · hand-to-target reach</option>
+          <option value="combined">Phone + Quest · reach and trunk observation</option>
+        </select>
+        <p className="note">For headset sessions, stay seated with passthrough on. Open this website’s /quest page in Meta Quest Browser, pair it, and use the in-headset controls. Voice guidance comes from the headset only.</p>
+      </label>
       <div className="stack">
         {assignments.map((a) => (
           <article className="card stack" key={a.id}>
@@ -63,7 +73,7 @@ export default function Today() {
               </p>
             </div>
             <button className="btn" disabled={busy} onClick={() => start(a)}>
-              Set up my camera
+              {mode === "quest" ? "Set up my headset" : "Set up my camera"}
               <ArrowRight size={18} />
             </button>
           </article>

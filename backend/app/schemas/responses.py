@@ -58,7 +58,7 @@ class SessionState(BaseModel):
 class SessionOut(BaseModel):
     id: str
     assignment_id: str
-    mode: Literal["phone", "quest"]
+    mode: Literal["phone", "quest", "combined"]
     is_synthetic: bool
     config_snapshot: dict[str, Any]
     state: SessionState
@@ -72,7 +72,7 @@ class PairingOut(BaseModel):
 
 
 class PairOut(BaseModel):
-    source: Literal["phone", "quest", "simulator"]
+    source: Literal["phone", "quest", "simulator", "simulator_phone", "simulator_quest"]
     device_token: str
     device_id: str
     session_id: str

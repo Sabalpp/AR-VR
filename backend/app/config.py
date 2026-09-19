@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     public_origin: str = "https://localhost:3000"
     environment: str = "development"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.6-flash"
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = ""
     presage_enabled: bool = False

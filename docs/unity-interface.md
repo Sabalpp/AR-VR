@@ -1,13 +1,13 @@
 # Unity / Meta Quest interface — version 1
 
-The teammate-owned Unity application remains outside this implementation. `scripts/unity_simulator.py` is a **synthetic protocol client**, not a headset integration or clinical capture. Actual Quest connection, coordinate alignment and hardware behavior require separate verification.
+The teammate-owned Unity application remains outside this implementation; the backend and phone/browser modes below are implemented, while in-headset controls must be wired and tested in that app. `scripts/unity_simulator.py` is a **synthetic protocol client**, not a headset integration or clinical capture. Actual Quest connection, coordinate alignment and hardware behavior require separate verification.
 
 ## Connect and authenticate
 
 Use the external HTTPS origin from the team; never a laptop `localhost` URL. REST uses `/api/v1`; WebSocket URL is `wss://PUBLIC_HOST/api/v1/ws/SESSION_ID`. Runtime REST docs and the exported OpenAPI document define exact HTTP bodies. A therapist or the assigned patient authenticates with `/auth/login`, receiving a bearer token. Patient access and therapist-patient links are checked on session operations.
 
 1. The authenticated browser creates a session with `POST /sessions` and body `{"assignment_id":"…","mode":"quest","is_synthetic":false}`. The server snapshots the assignment's exercise configuration.
-2. It requests `POST /sessions/SESSION_ID/pairing` with `{"source":"quest"}`. Display the short-lived code to the patient. Codes expire after five minutes, are single use, and are session scoped. Pair exchanges are limited to six per minute per remote IP; issue requests to ten per minute per user. The first device matching the session mode becomes authoritative. Other devices may pair as separate observation streams; they never update the repetition counter.
+2. It requests `POST /sessions/SESSION_ID/pairing` with `{"source":"quest"}`. Display the short-lived code to the patient. Codes expire after five minutes, are single use, and are session scoped. Pair exchanges are limited to six per minute per remote IP; issue requests to ten per minute per user. The first phone device in phone mode, or Quest device in Quest/combined mode, becomes the authoritative input stream; the backend counts repetitions. Other devices may pair as separate observation streams; they never update the repetition counter.
 3. Unity sends `POST /devices/pair` with `{"code":"DISPLAYED_CODE","label":"Quest headset"}`. This exchanges the secret code for `device_token`, `device_id`, and `session_id`. Do not use the therapist's bearer token on the headset.
 4. Connect the WebSocket and immediately send `device.join` containing the device token. User bearer tokens expire after eight hours and session-device tokens after four hours. Tokens are not URL query parameters and must not be logged. A token for a different session must fail.
 5. Wait for `session.config`; only then begin streaming and keep receiving messages while sending. Unity may give immediate local visual/haptic feedback, but backend repetition count is authoritative.
@@ -38,7 +38,7 @@ Example Quest frame:
 
 `quest_local` is a stable Unity/Quest tracking origin in meters: x right, y up, z forward (Unity convention). `quest_target_m` must be defined in that exact same origin. Recentring changes the origin; pause, re-establish the target and start a fresh configuration/session rather than continuing with a shifted target. Do not submit world coordinates from an unrelated scene transform without converting them into the declared tracking origin. No cross-device calibration is implemented.
 
-The seated-reach Quest criterion is Euclidean right-wrist-to-target distance. The configuration contains `quest_target_m`, `quest_reach_m`, `quest_return_m`, `hold_ms`, `visibility_min`, and `gap_ms`. The demonstration defaults require a held return, held reach, and held return to complete one repetition; they are configurable exercise settings, not clinical norms. Send actual wrist positions. Untracked or inferred wrists are invalid; do not synthesize observations from the headset pose.
+The seated-reach Quest criterion (also used in combined mode) is Euclidean right-wrist-to-target distance. The configuration contains `quest_target_m`, `quest_reach_m`, `quest_return_m`, `hold_ms`, `visibility_min`, and `gap_ms`. The demonstration defaults require a held return, held reach, and held return to complete one repetition; they are configurable exercise settings, not clinical norms. Send actual wrist positions. Untracked or inferred wrists are invalid; do not synthesize observations from the headset pose.
 
 Phone frames instead declare `coordinate_system:"image_normalized"`, `units:"normalized"`, actual `image_width` and `image_height`, and `right_shoulder`, `right_elbow`, `right_wrist`. x goes right, y goes down, both normalized to the source image before any mirrored display. Optional MediaPipe z is uncalibrated and never meters. The backend calculates the elbow angle after aspect-ratio correction, labeled **projected 2D elbow degrees**. It cannot be substituted for Quest hand-to-target distance.
 
@@ -69,3 +69,28 @@ It signs in as the fictional patient, creates `is_synthetic:true`, requests a `s
 ### Device source check during exchange
 
 `POST /api/v1/devices/pair` accepts optional `expected_source` (`phone`, `quest`, or `simulator`). Phone and headset clients should set it to their source. A mismatch returns 422 without consuming the code. Successful exchange also returns `source` alongside the device ID, session ID and token.
+
+
+## Combined mode and room setup
+
+| Mode | Authoritative counter | Phone observation | Quest observation | Audio / primary controls |
+|---|---|---|---|---|
+| `phone` | Backend, phone stream | Projected 2D elbow angle | Optional separate observation | Phone |
+| `quest` | Backend, Quest stream | Not required | Hand-to-target distance in meters | Quest |
+| `combined` | Backend, Quest stream | Projected 2D right shoulder–hip tilt | Hand-to-target distance in meters | Quest |
+
+Create combined sessions with `mode:"combined"`. They begin paused. Pair the phone first and start its camera **before putting the headset on**. The first paired phone supplies setup readiness; another phone cannot take that role over. Use a stationary, level, side-on phone with the right shoulder and hip visible. The backend requires at least `setup_hold_ms` of consecutive, recent, valid torso observations (default one second). Hidden/inferred joints, sequence gaps, stale capture and timestamp reversals reset readiness. Resume requires the latest observation to be no older than `gap_ms + 500` milliseconds after clock-offset correction. Pair Quest, keep the phone recording and visible, then send `session.resume` from Quest. A phone device token cannot resume a headset session. An authenticated browser can provide emergency controls.
+
+`session.config.config` now includes `counter_stream`, `audio_owner`, `control_owner`, `capture_hz:10`, `batch_interval_ms:250`, `seated_only:true`, and `passthrough_required`. Implement headset **start/resume, pause, finish and mute** controls. Bind the first three to the existing `session.*` messages and mute locally. Stop the ghost animation when authoritative state is paused/complete. Use the immutable reach/return distances and `hold_ms` for ghost guidance; there is no metronome or automatic tempo claim. Show phone tracking coverage and review flags separately from Quest hand tracking. Never increment the displayed authoritative count from a local Unity event.
+
+The phone is silent in Quest and combined modes, including tracking-loss cues. The headset is the only audio source. Pause from the headset before finishing and allow outstanding frame acknowledgements to drain. Completing a session rejects subsequent frames; an interrupted phone may have unsaved samples and must show that limitation. The browser remains available for emergency pause/finish and post-session check-in after removing the headset. Phone capture continues during a combined-mode pause to re-establish visibility; it never produces repetitions. A paused sample is labeled as paused in replay.
+
+For trunk observation, the backend computes the unsigned angle between the right hip-to-shoulder vector and **image vertical**, correcting x by image aspect ratio. Only measured, visible shoulder/hip coordinates are used. A default 15-degree review threshold is a demonstration setting. The value is not baseline-calibrated flexion, not a physical 3D angle, and not evidence of clinical compensation by itself; a tilted camera changes the result. Phone and Quest clocks, coordinates, measurements and replay tracks remain distinct. Reports retain observed and flagged sample counts; these are not duration percentages. Frames identify `measurement_kind:"projected_2d_trunk_lean_degrees"` and `trunk_review`.
+
+No new ping or acknowledgement type is necessary: `GET /time` supplies the clock estimate and `session.state.payload.ack_id` acknowledges commands/frames after commit. An idle socket now receives state changes from other devices within a nominal 500 ms polling interval; these unsolicited updates use an empty `ack_id`. They are state notifications, not acknowledgements of pending frames. Network and database latency add to that interval.
+
+Synthetic combined tests use `simulator_phone` and `simulator_quest`, only on `is_synthetic:true` sessions. They cannot pair with a real session. Run `backend/.venv/bin/python scripts/verify_combined.py` to exercise HTTPS/WSS, both streams, setup gating, headset commands and separate replay tracks. This is not a physical headset acceptance test.
+
+## Browser alternative and attempt cues
+
+The `/quest` WebXR client now implements a browser alternative to the teammate-owned Unity app; see [Quest Browser setup](quest-browser.md). Unity clients can continue using the same REST/WSS interface. `exercise.feedback` may additionally carry `cue_id:"adjust"` and `attempt_id` for an observed return without holding the configured target. `session.state` can include `attempt`, `last_attempt` and attempt outcome counts. Existing clients should tolerate these additive fields; use the regenerated schema. The server still owns repetitions.

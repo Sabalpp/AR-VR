@@ -558,6 +558,16 @@ export interface components {
              * @default 0.3
              */
             quest_return_m: number;
+            /**
+             * Trunk Lean Review Deg
+             * @default 15
+             */
+            trunk_lean_review_deg: number;
+            /**
+             * Setup Hold Ms
+             * @default 1000
+             */
+            setup_hold_ms: number;
         };
         /** ExerciseOut */
         ExerciseOut: {
@@ -649,7 +659,7 @@ export interface components {
         /** PairIn */
         PairIn: {
             /** Expected Source */
-            expected_source?: ("phone" | "quest" | "simulator") | null;
+            expected_source?: ("phone" | "quest" | "simulator" | "simulator_phone" | "simulator_quest") | null;
             /** Code */
             code: string;
             /**
@@ -664,7 +674,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "phone" | "quest" | "simulator";
+            source: "phone" | "quest" | "simulator" | "simulator_phone" | "simulator_quest";
             /** Device Token */
             device_token: string;
             /** Device Id */
@@ -678,7 +688,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "phone" | "quest" | "simulator";
+            source: "phone" | "quest" | "simulator" | "simulator_phone" | "simulator_quest";
         };
         /** PairingOut */
         PairingOut: {
@@ -766,7 +776,7 @@ export interface components {
              * @default phone
              * @enum {string}
              */
-            mode: "phone" | "quest";
+            mode: "phone" | "quest" | "combined";
             /**
              * Is Synthetic
              * @default false
@@ -783,7 +793,7 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "phone" | "quest";
+            mode: "phone" | "quest" | "combined";
             /** Is Synthetic */
             is_synthetic: boolean;
             /** Config Snapshot */

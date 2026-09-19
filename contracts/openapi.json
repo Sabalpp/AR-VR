@@ -1349,6 +1349,20 @@
             "exclusiveMinimum": 0.0,
             "title": "Quest Return M",
             "default": 0.3
+          },
+          "trunk_lean_review_deg": {
+            "type": "number",
+            "maximum": 60.0,
+            "minimum": 5.0,
+            "title": "Trunk Lean Review Deg",
+            "default": 15
+          },
+          "setup_hold_ms": {
+            "type": "integer",
+            "maximum": 5000.0,
+            "minimum": 500.0,
+            "title": "Setup Hold Ms",
+            "default": 1000
           }
         },
         "additionalProperties": false,
@@ -1590,7 +1604,9 @@
                 "enum": [
                   "phone",
                   "quest",
-                  "simulator"
+                  "simulator",
+                  "simulator_phone",
+                  "simulator_quest"
                 ]
               },
               {
@@ -1626,7 +1642,9 @@
             "enum": [
               "phone",
               "quest",
-              "simulator"
+              "simulator",
+              "simulator_phone",
+              "simulator_quest"
             ],
             "title": "Source"
           },
@@ -1659,7 +1677,9 @@
             "enum": [
               "phone",
               "quest",
-              "simulator"
+              "simulator",
+              "simulator_phone",
+              "simulator_quest"
             ],
             "title": "Source"
           }
@@ -1870,7 +1890,8 @@
             "type": "string",
             "enum": [
               "phone",
-              "quest"
+              "quest",
+              "combined"
             ],
             "title": "Mode",
             "default": "phone"
@@ -1902,7 +1923,8 @@
             "type": "string",
             "enum": [
               "phone",
-              "quest"
+              "quest",
+              "combined"
             ],
             "title": "Mode"
           },

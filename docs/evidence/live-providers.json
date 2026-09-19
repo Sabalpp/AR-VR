@@ -1,0 +1,12 @@
+{
+  "gemini": {
+    "result": "PASS",
+    "model": "gemini-3.6-flash",
+    "grounding_version": "fact-selection-v1"
+  },
+  "elevenlabs": {
+    "result": "PASS",
+    "audio_bytes": 70261,
+    "mp3_header_valid": true
+  }
+}

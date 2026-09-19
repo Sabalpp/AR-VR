@@ -261,6 +261,20 @@
           "title": "Quest Return M",
           "type": "number"
         },
+        "trunk_lean_review_deg": {
+          "default": 15,
+          "maximum": 60,
+          "minimum": 5,
+          "title": "Trunk Lean Review Deg",
+          "type": "number"
+        },
+        "setup_hold_ms": {
+          "default": 1000,
+          "maximum": 5000,
+          "minimum": 500,
+          "title": "Setup Hold Ms",
+          "type": "integer"
+        },
         "target_repetitions": {
           "type": "integer",
           "minimum": 1,
@@ -268,6 +282,36 @@
         },
         "authoritative_counter": {
           "const": "backend"
+        },
+        "counter_stream": {
+          "enum": [
+            "phone",
+            "quest"
+          ]
+        },
+        "audio_owner": {
+          "enum": [
+            "phone",
+            "quest"
+          ]
+        },
+        "control_owner": {
+          "enum": [
+            "phone",
+            "quest"
+          ]
+        },
+        "capture_hz": {
+          "const": 10
+        },
+        "batch_interval_ms": {
+          "const": 250
+        },
+        "seated_only": {
+          "const": true
+        },
+        "passthrough_required": {
+          "type": "boolean"
         }
       },
       "title": "ExerciseConfig",
@@ -529,7 +573,8 @@
             "mode": {
               "enum": [
                 "phone",
-                "quest"
+                "quest",
+                "combined"
               ]
             },
             "authoritative_counter": {
@@ -647,6 +692,79 @@
             "tracking_gaps": {
               "type": "integer",
               "minimum": 0
+            },
+            "phone_device_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "phone_last_capture_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "phone_capture_server_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "phone_valid_since_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "phone_trunk_lean_deg": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "phone_setup_ready": {
+              "type": "boolean"
+            },
+            "phone_tracking_valid": {
+              "type": "boolean"
+            },
+            "phone_trunk_review": {
+              "type": "boolean"
+            },
+            "trunk_observed_frames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "trunk_review_frames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "attempt": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": true
+            },
+            "last_attempt": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": true
+            },
+            "attempts_completed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "attempts_target_not_held": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "attempts_interrupted": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "required": [
@@ -690,8 +808,12 @@
             "cue_id": {
               "enum": [
                 "reach",
-                "tracking_lost"
+                "tracking_lost",
+                "adjust"
               ]
+            },
+            "attempt_id": {
+              "type": "string"
             }
           },
           "required": [

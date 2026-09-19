@@ -158,3 +158,20 @@ The [Unity simulator](docs/unity-interface.md#synthetic-simulator) generates onl
 Phone mode uses aspect-corrected **projected 2D elbow angle**. Quest mode uses hand-to-target distance in a stable Quest local origin, in meters. No phone depth is treated as calibrated distance; streams are not fused. Backend state machines own the repetition count, with held phases, hysteresis and invalid/gap/pause resets. Configuration is copied immutably into each session. Thresholds are demonstration targets, not clinical truths or form scores.
 
 Gemini and ElevenLabs are optional server-side integrations. Missing keys or provider failure leave measurements and session review available. Impiricus is represented by the clinician review workflow, with no invented API integration. Presage stays disabled pending verified platform/access support. See [sponsor boundaries and official documentation](docs/sponsors.md).
+
+
+## Current integrated demo
+
+The Tiger-backed Compose project is `arvr-tiger`, with a separate loopback gateway on port **8081** (`GATEWAY_PORT` in private `.env`). The original local smoke project still uses 8080. Restart this app with:
+
+```sh
+docker compose -p arvr-tiger up --build -d --no-deps backend frontend gateway
+```
+
+Choose Phone only, Quest only or Phone + Quest on the patient's plan. Combined mode records a separate, labeled projected trunk-tilt observation from the phone and keeps Quest-based repetition counting on the backend. Headset modes silence the phone. See [the mode table and Unity handoff](docs/unity-interface.md#combined-mode-and-room-setup) and [demo operations](docs/demo-operations.md).
+
+Live provider tests are reproducible with `backend/.venv/bin/python scripts/verify_providers.py`; they make small billable requests using the private root `.env`. Gemini's configured model is now `gemini-3.6-flash`, and ElevenLabs uses an available premade voice. Deterministic fallback remains intentional when Gemini fails or times out.
+
+## Quest Browser and inspectable correction
+
+A headset-browser client is now available at `/quest`, with passthrough, a spatial target, actual WebXR wrist samples, and in-headset controls. Pair it with a new Quest or combined session. Physical Quest 3 acceptance is still pending. See [Quest setup and measurement details](docs/quest-browser.md). Missed and completed target attempts now have separate clinician replay buttons and saved evidence.

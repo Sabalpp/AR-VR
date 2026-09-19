@@ -50,8 +50,41 @@ try {
     await page.getByRole('button',{name:'Pause playback'}).waitFor();
     await page.screenshot({path:`${output}/session-review.png`,fullPage:true});
   }
+  if(process.env.COMBINED_REVIEW_SESSION_ID){
+    await page.goto(`${origin}/dashboard/sessions/${process.env.COMBINED_REVIEW_SESSION_ID}`);
+    await page.getByRole('heading',{name:'Session review'}).waitFor();
+    const source=page.getByLabel('Tracking source');
+    await source.waitFor();
+    await source.locator('option').nth(1).waitFor({state:'attached'});
+    const options=await source.locator('option').allTextContents();
+    const phoneOption=options.find(label=>label.startsWith('simulator_phone'));
+    const questOption=options.find(label=>label.startsWith('simulator_quest'));
+    if(!phoneOption||!questOption)throw new Error('Missing independent combined replay streams');
+    await source.selectOption({label:phoneOption});
+    await page.getByRole('heading',{name:'Projected trunk tilt from image vertical (°)',exact:true}).waitFor();
+    await page.screenshot({path:`${output}/combined-trunk-replay.png`,fullPage:true});
+    await source.selectOption({label:questOption});
+    await page.getByRole('heading',{name:'Hand-to-target distance (m)',exact:true}).waitFor();
+    await phone.goto(`${origin}/patient`);
+    await phone.getByLabel('Session mode').selectOption('combined');
+    await phone.getByRole('button',{name:'Set up my camera'}).first().click();
+    await phone.getByText('Waiting for stable shoulder and hip tracking before headset setup.').waitFor();
+    if(await phone.getByRole('button',{name:'Get a headset pairing code'}).isEnabled())throw new Error('Combined setup skipped camera readiness');
+    if(await phone.getByRole('button',{name:'Enable voice guidance'}).count())throw new Error('Phone audio exposed in combined mode');
+    await phone.screenshot({path:`${output}/combined-setup.png`,fullPage:true});
+    await phone.goto(`${origin}/patient`);
+    await phone.getByLabel('Session mode').selectOption('quest');
+    await phone.getByRole('button',{name:'Set up my headset'}).first().click();
+    await phone.getByRole('heading',{name:'Connect your headset'}).waitFor();
+    if(await phone.getByRole('button',{name:'Allow camera & begin'}).count())throw new Error('Quest-only requires phone camera');
+    await phone.getByRole('button',{name:'Emergency pause',exact:true}).click();
+    await phone.getByRole('status').filter({hasText:'paused'}).waitFor();
+    await phone.screenshot({path:`${output}/quest-controls.png`,fullPage:true});
+    await phone.getByRole('button',{name:'Finish from browser'}).click();
+    await phone.getByRole('heading',{name:'How did that feel?'}).waitFor();
+  }
   const overflow=await phone.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);
   if(overflow)throw new Error('Mobile page overflows horizontally');
   if(errors.length)throw new Error(errors.join('\n'));
-  console.log(JSON.stringify({desktop_assignment_created:true,mobile_plan_visible:true,mobile_viewport_only:true,real_phone_camera_tested:false,camera_unavailable_handled:cameraError,review_playback_tested:!!process.env.REVIEW_SESSION_ID,page_errors:errors,screenshots:output},null,2));
+  console.log(JSON.stringify({desktop_assignment_created:true,mobile_plan_visible:true,mobile_viewport_only:true,real_phone_camera_tested:false,camera_unavailable_handled:cameraError,review_playback_tested:!!process.env.REVIEW_SESSION_ID,combined_modes_tested:!!process.env.COMBINED_REVIEW_SESSION_ID,page_errors:errors,screenshots:output},null,2));
 }finally{await browser.close()}

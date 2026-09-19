@@ -104,3 +104,28 @@ def test_valid_grounded_selection():
         model, report = asyncio.run(summarize(METRICS, ""))
     assert model != "deterministic-fallback"
     assert report["observation_codes"] == codes
+
+
+def test_request_schema_excludes_facts_not_present_in_session():
+    class InspectClient(FakeClient):
+        async def post(self, *args, **kwargs):
+            codes = kwargs["json"]["generationConfig"]["responseJsonSchema"]["properties"][
+                "observation_codes"
+            ]
+            allowed = codes["items"]["enum"]
+            assert set(allowed) == {
+                "completed_cycles",
+                "tracking_loss",
+                "projected_measurement",
+                "synthetic_capture",
+            }
+            assert codes["minItems"] == codes["maxItems"] == 4
+            self.output = {"observation_codes": allowed}
+            return await super().post(*args, **kwargs)
+
+    with (
+        patch("app.providers.gemini.settings.gemini_api_key", "test"),
+        patch("app.providers.gemini.httpx.AsyncClient", return_value=InspectClient()),
+    ):
+        model, _ = asyncio.run(summarize(METRICS, ""))
+    assert model != "deterministic-fallback"

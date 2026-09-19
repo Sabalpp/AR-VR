@@ -22,6 +22,8 @@ class ExerciseConfig(Strict):
     quest_target_m: dict[str, float] = Field(default_factory=lambda: {"x": 0, "y": 1, "z": 0.5})
     quest_reach_m: float = Field(default=0.12, gt=0, le=1)
     quest_return_m: float = Field(default=0.3, gt=0, le=2)
+    trunk_lean_review_deg: float = Field(default=15, ge=5, le=60)
+    setup_hold_ms: int = Field(default=1000, ge=500, le=5000)
 
     @model_validator(mode="after")
     def ordered(self):
@@ -44,16 +46,18 @@ class AssignmentIn(Strict):
 
 class SessionIn(Strict):
     assignment_id: str
-    mode: Literal["phone", "quest"] = "phone"
+    mode: Literal["phone", "quest", "combined"] = "phone"
     is_synthetic: bool = False
 
 
 class PairingIn(Strict):
-    source: Literal["phone", "quest", "simulator"]
+    source: Literal["phone", "quest", "simulator", "simulator_phone", "simulator_quest"]
 
 
 class PairIn(Strict):
-    expected_source: Literal["phone", "quest", "simulator"] | None = None
+    expected_source: (
+        Literal["phone", "quest", "simulator", "simulator_phone", "simulator_quest"] | None
+    ) = None
     code: str = Field(min_length=6, max_length=20)
     label: str = Field(default="Device", max_length=100)
 

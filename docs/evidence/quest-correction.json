@@ -1,0 +1,41 @@
+{
+  "session_id": "7168849c-14e8-42c2-90c9-c61f6e52b658",
+  "attempts": [
+    {
+      "start_seq": 6,
+      "started_at": "2026-09-19T11:06:37.048619+00:00",
+      "best_measurement": 0.21,
+      "target_threshold": 0.12,
+      "measurement_kind": "quest_hand_target_distance_m",
+      "outcome": "target_not_held",
+      "end_seq": 14,
+      "ended_at": "2026-09-19T11:06:39.164313+00:00",
+      "id": "f197d329-0d34-4ab0-9b8e-b639bf61556c:6",
+      "device_id": "f197d329-0d34-4ab0-9b8e-b639bf61556c"
+    },
+    {
+      "start_seq": 24,
+      "started_at": "2026-09-19T11:06:41.804824+00:00",
+      "best_measurement": 0.06,
+      "target_threshold": 0.12,
+      "measurement_kind": "quest_hand_target_distance_m",
+      "outcome": "completed",
+      "end_seq": 32,
+      "ended_at": "2026-09-19T11:06:43.924208+00:00",
+      "id": "f197d329-0d34-4ab0-9b8e-b639bf61556c:24",
+      "device_id": "f197d329-0d34-4ab0-9b8e-b639bf61556c"
+    }
+  ],
+  "feedbacks": [
+    {
+      "message": "Target was not held. If comfortable, try reaching the target and holding briefly before returning.",
+      "cue_id": "adjust",
+      "attempt_id": "f197d329-0d34-4ab0-9b8e-b639bf61556c:6"
+    },
+    {
+      "message": "Reach-and-return cycle recorded.",
+      "cue_id": "reach"
+    }
+  ],
+  "synthetic_only": true
+}

@@ -31,6 +31,7 @@ from app.schemas.api import (
     Batch,
     CheckinIn,
     DeviceStatusIn,
+    ExerciseConfig,
     Login,
     PairIn,
     PairingIn,
@@ -53,7 +54,7 @@ from app.schemas.responses import (
     UserOut,
 )
 from app.services.security import password_verify, principal, token, user
-from app.services.sessions import get_report, ingest, transition
+from app.services.sessions import get_report, ingest, live_state, transition
 
 router = APIRouter(prefix="/api/v1")
 _attempts = defaultdict(deque)
@@ -172,12 +173,19 @@ def create_session(data: SessionIn, u=Depends(user), db: DBSession = Depends(get
         mode=data.mode,
         is_synthetic=data.is_synthetic,
         config_snapshot={
-            **a.config,
+            **ExerciseConfig.model_validate(a.config).model_dump(),
             "target_repetitions": a.repetitions,
             "authoritative_counter": "backend",
+            "counter_stream": "phone" if data.mode == "phone" else "quest",
+            "audio_owner": "phone" if data.mode == "phone" else "quest",
+            "control_owner": "phone" if data.mode == "phone" else "quest",
+            "capture_hz": 10,
+            "batch_interval_ms": 250,
+            "seated_only": True,
+            "passthrough_required": data.mode != "phone",
         },
         state={
-            "status": "active",
+            "status": "paused" if data.mode == "combined" else "active",
             "repetitions": 0,
             "phase": "waiting_return",
             "last_measurement": None,
@@ -205,7 +213,8 @@ def patient_sessions(patient_id: str, u=Depends(user), db: DBSession = Depends(g
 
 @router.get("/sessions/{session_id}", response_model=SessionOut)
 def get_session(session_id: str, p=Depends(principal), db: DBSession = Depends(get_db)):
-    return row(session_access(db, p, session_id))
+    session = session_access(db, p, session_id)
+    return {**row(session), "state": live_state(session)}
 
 
 @router.post("/sessions/{session_id}/pairing", response_model=PairingOut)
@@ -214,10 +223,14 @@ def pairing(session_id: str, data: PairingIn, p=Depends(user), db: DBSession = D
     rate_limit(("issue", p.id))
     if s.completed_at:
         raise HTTPException(409, "Session complete")
-    if s.is_synthetic and data.source != "simulator":
+    if s.is_synthetic and not data.source.startswith("simulator"):
         raise HTTPException(422, "Synthetic sessions accept simulator sources only")
-    if data.source == "simulator" and not s.is_synthetic:
+    if data.source.startswith("simulator") and not s.is_synthetic:
         raise HTTPException(422, "Simulator requires synthetic session")
+    if data.source in ("simulator_phone", "simulator_quest") and s.mode != "combined":
+        raise HTTPException(422, "Explicit simulator streams require combined mode")
+    if data.source == "simulator" and s.mode == "combined":
+        raise HTTPException(422, "Choose simulator_phone or simulator_quest for combined mode")
     code = secrets.token_hex(4).upper()
     expiry = now() + timedelta(minutes=5)
     db.add(
@@ -250,10 +263,17 @@ def pair(data: PairIn, request: Request, db: DBSession = Depends(get_db)):
     d.paired = True
     d.pairing_hash = None
     d.label = data.label
+    counter_stream = "phone" if s.mode == "phone" else "quest"
     if not s.state.get("authoritative_device_id") and (
-        d.source == s.mode or d.source == "simulator"
+        d.source in (counter_stream, "simulator_" + counter_stream, "simulator")
     ):
         s.state = {**s.state, "authoritative_device_id": d.id}
+    if (
+        s.mode == "combined"
+        and d.source in ("phone", "simulator_phone")
+        and not s.state.get("phone_device_id")
+    ):
+        s.state = {**s.state, "phone_device_id": d.id}
     db.commit()
     return {
         "source": d.source,
@@ -277,7 +297,7 @@ def pause(session_id: str, p=Depends(principal), db: DBSession = Depends(get_db)
 
 @router.post("/sessions/{session_id}/resume", response_model=SessionState)
 def resume(session_id: str, p=Depends(principal), db: DBSession = Depends(get_db)):
-    return transition(db, session_access(db, p, session_id, True), "resume")
+    return transition(db, session_access(db, p, session_id, True), "resume", p)
 
 
 @router.post("/sessions/{session_id}/complete", response_model=SessionState)

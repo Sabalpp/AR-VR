@@ -52,6 +52,7 @@ export function frameFromLandmarks(
     Array<{ x: number; y: number; z: number; visibility?: number }> | undefined,
   video: HTMLVideoElement,
   seq: number,
+  trunkOnly = false,
 ): Frame {
   const joints: Record<string, Joint> = {};
   if (landmarks)
@@ -73,8 +74,8 @@ export function frameFromLandmarks(
     units: "normalized",
     image_width: video.videoWidth,
     image_height: video.videoHeight,
-    tracking_valid: ["right_shoulder", "right_elbow", "right_wrist"].every(
-      (n) => joints[n]?.visibility >= 0.65,
+    tracking_valid: (trunkOnly ? ["right_shoulder", "right_hip"] : ["right_shoulder", "right_elbow", "right_wrist"]).every(
+      (n) => joints[n]?.visibility >= 0.65 && joints[n].x >= 0 && joints[n].x <= 1 && joints[n].y >= 0 && joints[n].y <= 1,
     ),
     joints,
   };

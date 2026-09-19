@@ -22,12 +22,14 @@ Fact = Literal[
     "quest_measurement",
     "patient_notes",
     "synthetic_capture",
+    "trunk_observation",
+    "target_attempts",
 ]
 
 
 class Selection(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    observation_codes: list[Fact] = Field(min_length=1, max_length=7)
+    observation_codes: list[Fact] = Field(min_length=1, max_length=9)
 
 
 def facts_for(metrics, notes):
@@ -57,6 +59,15 @@ def facts_for(metrics, notes):
         facts["synthetic_capture"] = (
             "This is a simulated capture and must not be interpreted as patient movement."
         )
+    if metrics.get("secondary_measurement_kind") == "projected_2d_trunk_lean_degrees":
+        facts["trunk_observation"] = (
+            "Phone trunk tilt is a separate projected 2D observation relative to image vertical. "
+            "Camera angle affects it; review flags are not a diagnosis of compensation."
+        )
+    if metrics.get("attempts_target_not_held", 0):
+        facts["target_attempts"] = (
+            "Some observed attempts returned without holding the configured target. Inspect their linked replay segments; this is not a clinical form assessment."
+        )
     return facts
 
 
@@ -80,6 +91,12 @@ async def summarize(metrics, notes):
     fallback = render(metrics, notes, facts, list(facts))
     if not settings.gemini_api_key:
         return "deterministic", fallback
+    # Restrict the provider's schema to facts actually present in this session,
+    # rather than exposing all globally valid fact codes (some would be false).
+    selection_schema = Selection.model_json_schema()
+    codes_schema = selection_schema["properties"]["observation_codes"]
+    codes_schema["items"]["enum"] = list(facts)
+    codes_schema["minItems"] = codes_schema["maxItems"] = len(facts)
     try:
         async with httpx.AsyncClient(timeout=12) as client:
             response = await client.post(
@@ -104,7 +121,14 @@ async def summarize(metrics, notes):
                     ],
                     "generationConfig": {
                         "responseMimeType": "application/json",
-                        "responseJsonSchema": Selection.model_json_schema(),
+                        "responseJsonSchema": selection_schema,
+                        # Fact ordering is a small bounded task. Avoid spending
+                        # the interactive timeout on the model's default thinking.
+                        **(
+                            {"thinkingConfig": {"thinkingLevel": "minimal"}}
+                            if settings.gemini_model == "gemini-3.6-flash"
+                            else {}
+                        ),
                     },
                 },
             )

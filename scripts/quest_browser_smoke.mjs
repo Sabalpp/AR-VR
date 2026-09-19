@@ -1,0 +1,36 @@
+import fs from 'node:fs/promises';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
+const origin=process.env.TEST_ORIGIN;
+const browser=await chromium.launch();
+const output=process.env.EVIDENCE_DIR||'/tmp/quest-browser-evidence';
+await fs.mkdir(output,{recursive:true});
+const errors=[];
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1000}});
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(origin+'/quest');
+ await page.getByRole('heading',{name:'Quest 3 · seated reach'}).waitFor();
+ await page.getByText(/Immersive passthrough is unavailable/).waitFor();
+ if(await page.getByRole('button',{name:'Pair headset',exact:true}).isEnabled())throw new Error('Pairing enabled without XR support');
+ await page.screenshot({path:output+'/quest-unsupported.png',fullPage:true});
+ await page.goto(origin);
+ await page.getByLabel('Email address').fill('therapist@demo.local');
+ await page.getByLabel('Password',{exact:true}).fill(process.env.DEMO_PASSWORD);
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.getByRole('heading',{name:'Your patients'}).waitFor();
+ const reportResponse=page.waitForResponse(response=>response.url().endsWith('/sessions/'+process.env.CORRECTION_SESSION_ID+'/report'));
+ await page.goto(origin+'/dashboard/sessions/'+process.env.CORRECTION_SESSION_ID);
+ const miss=page.getByRole('button',{name:/Review: target was not held/});await miss.waitFor();await miss.click();
+ const first=Number(await page.getByLabel('Replay time').inputValue());
+ await page.getByRole('button',{name:/Completed reach and return/}).click();
+ const second=Number(await page.getByLabel('Replay time').inputValue());
+ if(!(second>first&&first>0))throw new Error('Attempt links did not seek distinct recorded intervals');
+ await page.getByRole('button',{name:'Play playback'}).click();
+ await page.getByRole('button',{name:'Pause playback'}).waitFor();
+ const report=await (await reportResponse).json();
+ if(report.content?.attempt_evidence?.length!==2)throw new Error('Report missing linked attempt evidence');
+ await page.getByText(/Report: /).waitFor();
+ await page.screenshot({path:output+'/correction-review.png',fullPage:true});
+ if(errors.length)throw new Error(errors.join('\n'));
+ console.log(JSON.stringify({unsupported_browser_blocked:true,miss_seek_seconds:first,completed_seek_seconds:second,playback_works:true,report_attempts_linked:true,page_errors:errors,real_quest_tested:false},null,2));
+}finally{await browser.close();}

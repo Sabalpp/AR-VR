@@ -10,7 +10,7 @@ from app.models import Device, Repetition
 from app.repositories.access import session_access
 from app.schemas.api import Batch, Envelope, Frame
 from app.services.security import authenticate
-from app.services.sessions import ingest, transition
+from app.services.sessions import ingest, live_state, transition
 
 router = APIRouter()
 
@@ -45,9 +45,21 @@ async def socket(ws: WebSocket, session_id: str):
                 },
             )
             await send("session.state", {**session.state, "ack_id": msg.id})
+            last_sent_state = dict(session.state)
         # Sequential reads + Uvicorn ws-max-queue 32 provide bounded backpressure.
         while True:
-            raw = await ws.receive_text()
+            try:
+                raw = await asyncio.wait_for(ws.receive_text(), timeout=0.5)
+            except asyncio.TimeoutError:
+                # Relay controls from another device even while this socket is idle.
+                with SessionLocal() as db:
+                    device = authenticate(token_raw, db)
+                    session = session_access(db, device, session_id)
+                    state = live_state(session)
+                    if state != last_sent_state:
+                        await send("session.state", {**state, "ack_id": ""})
+                        last_sent_state = state
+                continue
             if len(raw) > 65536:
                 raise HTTPException(413, "Message too large")
             try:
@@ -57,6 +69,7 @@ async def socket(ws: WebSocket, session_id: str):
                     session = session_access(db, device, session_id, True)
                     previous_reps = session.state["repetitions"]
                     previous_tracking = session.state.get("tracking_valid", False)
+                    previous_attempt = session.state.get("last_attempt")
                     if msg.type == "tracking.frame":
                         result = ingest(
                             db,
@@ -66,7 +79,7 @@ async def socket(ws: WebSocket, session_id: str):
                         )
                         state = result["state"]
                     elif msg.type.startswith("session."):
-                        state = transition(db, session, msg.type.split(".")[1])
+                        state = transition(db, session, msg.type.split(".")[1], device)
                     elif msg.type == "device.status":
                         offset = msg.payload.get("clock_offset_ms")
                         if offset is not None:
@@ -133,6 +146,21 @@ async def socket(ws: WebSocket, session_id: str):
                     else:
                         raise HTTPException(422, "Already joined")
                     await send("session.state", {**state, "ack_id": msg.id})
+                    last_sent_state = dict(state)
+                    attempt = state.get("last_attempt")
+                    if (
+                        attempt
+                        and attempt != previous_attempt
+                        and attempt["outcome"] == "target_not_held"
+                    ):
+                        await send(
+                            "exercise.feedback",
+                            {
+                                "message": "Target was not held. If comfortable, try reaching the target and holding briefly before returning.",
+                                "cue_id": "adjust",
+                                "attempt_id": attempt["id"],
+                            },
+                        )
                     if msg.type == "tracking.frame" and state["repetitions"] > previous_reps:
                         await send(
                             "exercise.feedback",
