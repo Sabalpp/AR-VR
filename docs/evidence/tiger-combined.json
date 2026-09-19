@@ -1,0 +1,15 @@
+{
+  "kind": "synthetic_combined_https_wss_verification",
+  "session_id": "ceccae22-49df-4c28-b03a-bdf3718fffc9",
+  "phone_frames": 21,
+  "quest_frames": 18,
+  "repetitions": 1,
+  "measurement_kinds": [
+    "projected_2d_trunk_lean_degrees",
+    "quest_hand_target_distance_m"
+  ],
+  "setup_gate_verified": true,
+  "phone_audio_owner": false,
+  "report_model": "deterministic-fallback",
+  "real_hardware_tested": false
+}

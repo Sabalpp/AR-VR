@@ -1,0 +1,87 @@
+{
+  "kind": "synthetic_postgresql_restart_verification",
+  "session_id": "bd444eeb-3168-4db7-8e85-8a938076c4be",
+  "ingest": {
+    "accepted": 16,
+    "duplicates": 0,
+    "state": {
+      "status": "active",
+      "repetitions": 1,
+      "phase": "ready",
+      "last_measurement": 90.0,
+      "tracking_valid": true,
+      "authoritative_device_id": "fde1c36d-6884-48d0-a8a1-9fb7c414a275",
+      "last_capture_ms": 1789809060938.119,
+      "candidate_since": null,
+      "accepted_frames": 16,
+      "invalid_frames": 0,
+      "tracking_gaps": 0
+    }
+  },
+  "duplicate": {
+    "accepted": 0,
+    "duplicates": 16,
+    "state": {
+      "status": "active",
+      "repetitions": 1,
+      "phase": "ready",
+      "last_measurement": 90.0,
+      "tracking_valid": true,
+      "authoritative_device_id": "fde1c36d-6884-48d0-a8a1-9fb7c414a275",
+      "last_capture_ms": 1789809060938.119,
+      "candidate_since": null,
+      "accepted_frames": 16,
+      "invalid_frames": 0,
+      "tracking_gaps": 0
+    }
+  },
+  "completion": {
+    "status": "complete",
+    "repetitions": 1,
+    "phase": "waiting_return",
+    "last_measurement": 90.0,
+    "tracking_valid": true,
+    "authoritative_device_id": "fde1c36d-6884-48d0-a8a1-9fb7c414a275",
+    "last_capture_ms": 1789809060938.119,
+    "candidate_since": null,
+    "accepted_frames": 16,
+    "invalid_frames": 0,
+    "tracking_gaps": 0
+  },
+  "report": {
+    "id": "bd97c543-e6b0-47cc-a672-469640f4eee6",
+    "session_id": "bd444eeb-3168-4db7-8e85-8a938076c4be",
+    "model": "deterministic",
+    "version": "1",
+    "metrics_used": {
+      "repetitions": 1,
+      "accepted_frames": 16,
+      "invalid_frames": 0,
+      "tracking_gaps": 0,
+      "measurement_kind": "projected_2d_elbow_degrees",
+      "counter_source": "backend",
+      "is_synthetic": true
+    },
+    "content": {
+      "summary": "Recorded 1 completed reach-and-return cycles.",
+      "observations": [
+        "Right-elbow measurements are projected 2D angles, not calibrated physical distances.",
+        "The patient provided notes, shown separately from the measured results.",
+        "This is a simulated capture and must not be interpreted as patient movement."
+      ],
+      "limitations": [
+        "Observational demonstration only; this report is not a clinical assessment."
+      ],
+      "patient_notes": "SYNTHETIC verification fixture, not patient feedback.",
+      "observation_codes": [
+        "completed_cycles",
+        "projected_measurement",
+        "patient_notes",
+        "synthetic_capture"
+      ],
+      "grounding_version": "fact-selection-v1"
+    }
+  },
+  "replay_identical_after_restart": true,
+  "report_identical_after_restart": true
+}

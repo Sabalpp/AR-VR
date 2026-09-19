@@ -1,0 +1,178 @@
+[
+  {
+    "version": 1,
+    "type": "device.join",
+    "payload": {
+      "token": "REPLACE_WITH_PAIRED_DEVICE_TOKEN"
+    },
+    "id": "example-device.join"
+  },
+  {
+    "version": 1,
+    "type": "device.status",
+    "payload": {
+      "clock_offset_ms": 0,
+      "tracking_valid": true
+    },
+    "id": "example-device.status"
+  },
+  {
+    "version": 1,
+    "type": "tracking.frame",
+    "payload": {
+      "seq": 0,
+      "captured_at": "2026-09-19T14:00:00Z",
+      "coordinate_system": "quest_local",
+      "units": "meters",
+      "tracking_valid": true,
+      "joints": {
+        "right_wrist": {
+          "x": 0.04,
+          "y": 1,
+          "z": 0.5,
+          "visibility": 1,
+          "inferred": false
+        }
+      }
+    },
+    "id": "example-tracking.frame"
+  },
+  {
+    "version": 1,
+    "type": "tracking.frame",
+    "payload": {
+      "seq": 1,
+      "captured_at": "2026-09-19T14:00:00.100Z",
+      "coordinate_system": "quest_local",
+      "units": "meters",
+      "tracking_valid": false,
+      "joints": {}
+    },
+    "id": "example-tracking.frame"
+  },
+  {
+    "version": 1,
+    "type": "tracking.frame",
+    "payload": {
+      "seq": 0,
+      "captured_at": "2026-09-19T14:00:00Z",
+      "coordinate_system": "image_normalized",
+      "units": "normalized",
+      "image_width": 1280,
+      "image_height": 720,
+      "tracking_valid": true,
+      "joints": {
+        "right_shoulder": {
+          "x": 0.4,
+          "y": 0.4,
+          "visibility": 0.95
+        },
+        "right_elbow": {
+          "x": 0.5,
+          "y": 0.5,
+          "visibility": 0.95
+        },
+        "right_wrist": {
+          "x": 0.6,
+          "y": 0.45,
+          "visibility": 0.95
+        }
+      }
+    },
+    "id": "example-tracking.frame"
+  },
+  {
+    "version": 1,
+    "type": "exercise.event",
+    "payload": {
+      "seq": 0,
+      "name": "unity_local_reach_complete",
+      "occurred_at": "2026-09-19T14:00:01Z"
+    },
+    "id": "example-exercise.event"
+  },
+  {
+    "version": 1,
+    "type": "session.pause",
+    "payload": {},
+    "id": "example-session.pause"
+  },
+  {
+    "version": 1,
+    "type": "session.resume",
+    "payload": {},
+    "id": "example-session.resume"
+  },
+  {
+    "version": 1,
+    "type": "session.complete",
+    "payload": {},
+    "id": "example-session.complete"
+  },
+  {
+    "version": 1,
+    "type": "session.config",
+    "payload": {
+      "config": {
+        "phone_return_deg": 95,
+        "phone_reach_deg": 145,
+        "hold_ms": 300,
+        "visibility_min": 0.65,
+        "gap_ms": 750,
+        "quest_target_m": {
+          "x": 0,
+          "y": 1,
+          "z": 0.5
+        },
+        "quest_reach_m": 0.12,
+        "quest_return_m": 0.3,
+        "target_repetitions": 5,
+        "authoritative_counter": "backend"
+      },
+      "mode": "quest",
+      "authoritative_counter": "backend",
+      "device_id": "EXAMPLE_DEVICE_UUID",
+      "last_seq": -1,
+      "server_time": "2026-09-19T14:00:00Z"
+    }
+  },
+  {
+    "version": 1,
+    "type": "session.state",
+    "payload": {
+      "ack_id": "example-session.pause",
+      "status": "paused",
+      "repetitions": 0,
+      "phase": "waiting_return",
+      "last_measurement": null,
+      "tracking_valid": false
+    }
+  },
+  {
+    "version": 1,
+    "type": "exercise.feedback",
+    "payload": {
+      "message": "Tracking lost. Reposition your camera.",
+      "cue_id": "tracking_lost"
+    }
+  },
+  {
+    "version": 1,
+    "type": "session.summary",
+    "payload": {
+      "session_id": "EXAMPLE_SESSION_UUID",
+      "repetitions": 0,
+      "report_path": "/api/v1/sessions/EXAMPLE_SESSION_UUID/report"
+    }
+  },
+  {
+    "version": 1,
+    "type": "error",
+    "payload": {
+      "code": "validation_error",
+      "message": "Invalid message payload",
+      "ack_id": "example-tracking.frame",
+      "retryable": false
+    }
+  }
+]

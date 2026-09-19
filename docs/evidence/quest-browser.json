@@ -1,0 +1,9 @@
+{
+  "unsupported_browser_blocked": true,
+  "miss_seek_seconds": 1.65,
+  "completed_seek_seconds": 6.4,
+  "playback_works": true,
+  "report_attempts_linked": true,
+  "page_errors": [],
+  "real_quest_tested": false
+}

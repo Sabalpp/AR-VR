@@ -1,0 +1,14 @@
+{
+  "session_id": "ceccae22-49df-4c28-b03a-bdf3718fffc9",
+  "report_model": "gemini-3.6-flash",
+  "fact_codes": [
+    "synthetic_capture",
+    "patient_notes",
+    "completed_cycles",
+    "quest_measurement",
+    "trunk_observation"
+  ],
+  "speech_status": 200,
+  "audio_bytes": 66499,
+  "synthetic_only": true
+}
