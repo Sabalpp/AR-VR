@@ -1,0 +1,33 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Secrets / local config
+.env
+.env.local
+
+# Node / frontend
+dashboard/node_modules/
+dashboard/build/
+dashboard/.vite/
+
+# ML artifacts (regenerate via training)
+models/
+
+# Generated demo/render artifacts (regenerate via skeleton_video.py / seed_demo.py)
+*.mp4
+*.gif
+recordings/*.mp4
+rec_*_frames/
+rec_*_summary.png
+rec_*_portal_report*.json
+.arpt-render-*/
+
+# Patient reports (runtime data)
+reports/*.json
+
+# OS
+.DS_Store

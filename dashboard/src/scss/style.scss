@@ -1,0 +1,189 @@
+@use "@coreui/coreui/scss/coreui" as * with ( 
+  $enable-deprecation-messages: false,
+);
+@use "@coreui/chartjs/scss/coreui-chartjs";
+@use "vendors/simplebar";
+
+body {
+  background-color: var(--cui-tertiary-bg);
+}
+
+.wrapper {
+  width: 100%;
+  padding-inline: var(--cui-sidebar-occupy-start, 0) var(--cui-sidebar-occupy-end, 0);
+  will-change: auto;
+  @include transition(padding .15s);
+}
+
+.header > .container-fluid,
+.sidebar-header {
+  min-height: calc(4rem + 1px); // stylelint-disable-line function-disallowed-list
+}
+
+.sidebar-brand-full {
+  margin-left: 3px;
+}
+
+.sidebar-header {
+  .nav-underline-border {
+    --cui-nav-underline-border-link-padding-x: 1rem;
+    --cui-nav-underline-border-gap: 0;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    min-height: calc(4rem + 1px); // stylelint-disable-line function-disallowed-list
+  }
+}
+
+.sidebar-toggler {
+  margin-inline-start: auto;
+}
+
+.sidebar-narrow,
+.sidebar-narrow-unfoldable:not(:hover) {
+  .sidebar-toggler {
+    margin-inline-end: auto;
+  }
+}
+
+.header > .container-fluid + .container-fluid {
+  min-height: 3rem;
+}
+
+.footer {
+  min-height: calc(3rem + 1px); // stylelint-disable-line function-disallowed-list
+}
+
+@include color-mode(dark) {
+  body {
+    background-color: var(--cui-dark-bg-subtle);
+  }
+
+  .footer {
+    --cui-footer-bg: var(--cui-body-bg);
+  }
+}
+
+/* ============================================================
+   META CARE THEME  —  Facebook / Meta palette
+   Primary  #1877F2  (Facebook blue)
+   Accent   #0866FF  (Meta blue)
+   Navy     #0A2540  text
+   Surface  #FFFFFF  cards   ·   App bg #F0F2F5
+   ============================================================ */
+:root {
+  --mc-blue: #1877f2;
+  --mc-blue-rgb: 24, 119, 242;
+  --mc-blue-hover: #0b5fd0;
+  --mc-accent: #0866ff;
+  --mc-navy: #0a2540;
+  --mc-bg: #f0f2f5;
+  --mc-surface: #ffffff;
+  --mc-border: #dfe3e8;
+  --mc-muted: #65676b;
+
+  /* Override CoreUI/Bootstrap primary everywhere */
+  --cui-primary: #1877f2;
+  --cui-primary-rgb: 24, 119, 242;
+  --cui-link-color: #1877f2;
+  --cui-link-color-rgb: 24, 119, 242;
+  --cui-link-hover-color: #0b5fd0;
+}
+
+/* Light, Facebook-style app surface */
+body,
+.wrapper {
+  background-color: var(--mc-bg) !important;
+  color: var(--mc-navy);
+}
+
+/* Cards = clean white surfaces with soft shadow (Facebook feel) */
+.card {
+  --cui-card-bg: var(--mc-surface);
+  --cui-card-border-color: var(--mc-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.card-header {
+  background-color: var(--mc-surface);
+  font-weight: 600;
+  color: var(--mc-navy);
+  border-bottom: 1px solid var(--mc-border);
+}
+
+/* Sidebar: white with blue active state, like Facebook's left rail */
+.sidebar {
+  --cui-sidebar-bg: var(--mc-surface);
+  --cui-sidebar-color: var(--mc-navy);
+  --cui-sidebar-nav-link-color: #3a3b3c;
+  --cui-sidebar-nav-link-hover-bg: #e7f0fe;
+  --cui-sidebar-nav-link-hover-color: var(--mc-blue);
+  --cui-sidebar-nav-link-active-bg: #e7f0fe;
+  --cui-sidebar-nav-link-active-color: var(--mc-blue);
+  --cui-sidebar-nav-link-active-icon-color: var(--mc-blue);
+  --cui-sidebar-nav-title-color: var(--mc-muted);
+  --cui-sidebar-brand-bg: var(--mc-surface);
+  --cui-sidebar-toggler-bg: transparent;
+  border-right: 1px solid var(--mc-border);
+}
+.sidebar-nav .nav-link.active {
+  font-weight: 600;
+}
+.sidebar-nav .nav-link {
+  border-radius: 8px;
+  margin: 2px 10px;
+}
+
+/* Header bar white with subtle divider */
+.header {
+  --cui-header-bg: var(--mc-surface);
+  border-bottom: 1px solid var(--mc-border);
+}
+
+/* Primary buttons -> Meta blue with pill radius */
+.btn-primary {
+  --cui-btn-bg: var(--mc-blue);
+  --cui-btn-border-color: var(--mc-blue);
+  --cui-btn-hover-bg: var(--mc-blue-hover);
+  --cui-btn-hover-border-color: var(--mc-blue-hover);
+  --cui-btn-active-bg: var(--mc-blue-hover);
+  font-weight: 600;
+}
+.btn {
+  border-radius: 8px;
+}
+
+/* Progress bars use Meta blue by default */
+.progress-bar {
+  background-color: var(--mc-blue);
+}
+
+/* Brand wordmark in sidebar */
+.mc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+}
+.mc-brand img {
+  height: 26px;
+}
+.mc-sygnet {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #1877f2, #0866ff);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 20px;
+}
+
+/* Stat widgets: keep them bold and legible */
+.card .fs-4,
+.card .fs-3 {
+  letter-spacing: -0.2px;
+}
