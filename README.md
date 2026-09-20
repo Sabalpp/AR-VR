@@ -41,6 +41,9 @@ dashboard/                Meta Care doctor dashboard (React + CoreUI + Vite)
   src/views/arpt/          Overview · Queue · PatientDetail
   build/                   production bundle (served by FastAPI)
 
+landing/                  unfinished React + TypeScript + Tailwind landing scaffold
+  src/lib/utils.ts        cn utility; entry point, UI components, and styles still pending
+
 tests/                     pytest suite for the arpt package + API security
 recordings/                sample .skel recordings + labels.json
 models/                    trained classifier artifacts (git-ignored)

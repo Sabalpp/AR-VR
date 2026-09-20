@@ -13,6 +13,10 @@ __pycache__/
 dashboard/node_modules/
 dashboard/build/
 dashboard/.vite/
+landing/node_modules/
+landing/dist/
+landing/.vite/
+landing/*.tsbuildinfo
 
 # ML artifacts (regenerate via training)
 models/
