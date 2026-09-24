@@ -79,28 +79,55 @@ def transcribe(audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
 
 class GeminiLiveSession:
     """
-    Thin async wrapper around the Gemini Live API for the conversational intake
-    ("Explain what pain you are experiencing"). Usage:
+    Thin async wrapper around the Gemini Live API (default model
+    gemini-3.1-flash-live-preview). Used for the conversational intake
+    ("Explain what pain you are experiencing") and by the exercise coach
+    (arpt/ai/coach.py). Usage:
 
         async with GeminiLiveSession(system_prompt) as live:
-            await live.send_audio(chunk)          # stream mic in
-            async for reply in live.responses():  # stream audio/text out
+            await live.send_audio(chunk)          # stream mic in (16 kHz PCM)
+            async for reply in live.responses():  # stream audio (24 kHz PCM) / text out
                 ...
+
+    Optional features: `tools` (function declarations — synchronous only on
+    3.1 Flash Live), `transcribe` (input + output transcripts), `voice`
+    (prebuilt voice name) and `thinking_level` (minimal|low|medium|high).
     """
-    def __init__(self, system_prompt: str, model: str | None = None):
+    def __init__(self, system_prompt: str, model: str | None = None, *,
+                 tools: list[dict] | None = None, transcribe: bool = False,
+                 voice: str | None = None, thinking_level: str | None = None):
         self.system_prompt = system_prompt
         self.model = model or GEMINI_LIVE_MODEL
+        self.tools = tools
+        self.transcribe = transcribe
+        self.voice = voice
+        self.thinking_level = thinking_level
         self._client = gemini_client()
         self._session = None
         self._cm = None
 
-    async def __aenter__(self):
+    def _config(self):
         from google.genai import types
-        config = types.LiveConnectConfig(
+        kwargs = {}
+        if self.tools:
+            kwargs["tools"] = [{"function_declarations": self.tools}]
+        if self.transcribe:
+            kwargs["input_audio_transcription"] = types.AudioTranscriptionConfig()
+            kwargs["output_audio_transcription"] = types.AudioTranscriptionConfig()
+        if self.voice:
+            kwargs["speech_config"] = types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=self.voice)))
+        if self.thinking_level:
+            kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=self.thinking_level)
+        return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             system_instruction=self.system_prompt,
+            **kwargs,
         )
-        self._cm = self._client.aio.live.connect(model=self.model, config=config)
+
+    async def __aenter__(self):
+        self._cm = self._client.aio.live.connect(model=self.model, config=self._config())
         self._session = await self._cm.__aenter__()
         return self
 
@@ -115,13 +142,28 @@ class GeminiLiveSession:
         )
 
     async def send_text(self, text: str):
-        await self._session.send_client_content(
-            turns={"role": "user", "parts": [{"text": text}]}, turn_complete=True
-        )
+        """Inject text into the live conversation (e.g. a motion-tracking cue)."""
+        await self._session.send_realtime_input(text=text)
+
+    async def send_tool_responses(self, responses: list[dict]):
+        """Answer tool calls: [{"id": ..., "name": ..., "response": {...}}]."""
+        from google.genai import types
+        await self._session.send_tool_response(function_responses=[
+            types.FunctionResponse(id=r["id"], name=r["name"], response=r["response"])
+            for r in responses
+        ])
 
     async def responses(self):
-        async for response in self._session.receive():
-            yield response
+        """Yield server messages. Each receive() call covers one model turn, so
+        loop it to keep listening for the whole session. Ends when the server
+        closes the connection (a turn that yields nothing)."""
+        while True:
+            got_any = False
+            async for response in self._session.receive():
+                got_any = True
+                yield response
+            if not got_any:
+                return
 
 
 # ── Standard device prompts ──────────────────────────────────────────────────

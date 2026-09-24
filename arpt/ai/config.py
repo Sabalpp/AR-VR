@@ -20,7 +20,9 @@ except Exception:  # noqa: BLE001
 # Gemini (Google GenAI)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
-GEMINI_LIVE_MODEL = os.environ.get("GEMINI_LIVE_MODEL", "gemini-2.0-flash-live-001")
+GEMINI_LIVE_MODEL = os.environ.get("GEMINI_LIVE_MODEL", "gemini-3.1-flash-live-preview")
+# Prebuilt Gemini Live voice for the exercise coach (e.g. Kore, Puck, Charon).
+GEMINI_LIVE_VOICE = os.environ.get("GEMINI_LIVE_VOICE", "Kore")
 
 # ElevenLabs
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
